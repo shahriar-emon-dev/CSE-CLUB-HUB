@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
+import '../../../../shared/widgets/app_header.dart';
+import '../../../../shared/widgets/post_card_widget.dart';
 import '../../../auth/domain/entities/user_profile.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -27,61 +31,70 @@ class HomeScreen extends ConsumerWidget {
     final isAdmin = role == AppUserRole.admin;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('CSE Club Hub')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Welcome, ${user?.email ?? 'Student'}',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Role: $roleLabel',
-                  style: const TextStyle(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  canCreate
-                      ? 'Create actions are enabled for your account.'
-                      : 'You have student-level access.',
-                  textAlign: TextAlign.center,
-                ),
-                if (requestedExecutive && role == AppUserRole.student) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Executive request is pending admin approval.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
-                if (isAdmin) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Admin controls are enabled. Open admin dashboard to manage requests.',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: 'Logout',
-                  isLoading: authState.isLoading,
-                  onPressed: () {
-                    ref.read(authNotifierProvider.notifier).signOut();
-                  },
-                ),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text('CSE Club Hub'),
+        actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoutes.search),
+            icon: const Icon(Icons.search),
           ),
-        ),
+          IconButton(
+            onPressed: () => context.push(AppRoutes.notifications),
+            icon: const Icon(Icons.notifications_outlined),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          AppHeader(
+            title: 'Welcome, ${user?.email ?? 'Student'}',
+            subtitle: 'Role: $roleLabel',
+          ),
+          const SizedBox(height: 12),
+          if (requestedExecutive && role == AppUserRole.student)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Executive request is pending admin approval.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          _QuickActionGrid(
+            isAdmin: isAdmin,
+            canCreate: canCreate,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Home Feed',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          const PostCardWidget(
+            author: 'Machine Learning Club',
+            club: 'ML Club',
+            content: 'This week: Intro to CNNs and hands-on model training session.',
+            timestamp: '3h ago',
+          ),
+          const SizedBox(height: 12),
+          const PostCardWidget(
+            author: 'IoT & Robotics Club',
+            club: 'IoT Club',
+            content: 'Build challenge: Smart attendance tracker using ESP32.',
+            timestamp: '6h ago',
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            label: 'Logout',
+            isLoading: authState.isLoading,
+            onPressed: () {
+              ref.read(authNotifierProvider.notifier).signOut();
+            },
+          ),
+        ],
       ),
       floatingActionButton: canCreate
           ? FloatingActionButton(
@@ -92,4 +105,100 @@ class HomeScreen extends ConsumerWidget {
           : null,
     );
   }
+}
+
+class _QuickActionGrid extends StatelessWidget {
+  const _QuickActionGrid({
+    required this.isAdmin,
+    required this.canCreate,
+  });
+
+  final bool isAdmin;
+  final bool canCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = <_QuickActionItem>[
+      const _QuickActionItem(
+        title: 'Clubs',
+        icon: Icons.groups_2_outlined,
+        route: AppRoutes.clubs,
+      ),
+      const _QuickActionItem(
+        title: 'Events',
+        icon: Icons.event_outlined,
+        route: AppRoutes.events,
+      ),
+      const _QuickActionItem(
+        title: 'Profile',
+        icon: Icons.account_circle_outlined,
+        route: AppRoutes.profileDashboard,
+      ),
+      const _QuickActionItem(
+        title: 'Notifications',
+        icon: Icons.notifications_none,
+        route: AppRoutes.notifications,
+      ),
+      if (canCreate)
+        const _QuickActionItem(
+          title: 'Executive',
+          icon: Icons.workspace_premium_outlined,
+          route: AppRoutes.executiveDashboard,
+        ),
+      if (isAdmin)
+        const _QuickActionItem(
+          title: 'Admin',
+          icon: Icons.admin_panel_settings_outlined,
+          route: AppRoutes.adminPanel,
+        ),
+    ];
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      itemCount: actions.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 2.3,
+      ),
+      itemBuilder: (context, index) {
+        final action = actions[index];
+        return Card(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => context.push(action.route),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(action.icon, color: AppColors.cta),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      action.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QuickActionItem {
+  const _QuickActionItem({
+    required this.title,
+    required this.icon,
+    required this.route,
+  });
+
+  final String title;
+  final IconData icon;
+  final String route;
 }

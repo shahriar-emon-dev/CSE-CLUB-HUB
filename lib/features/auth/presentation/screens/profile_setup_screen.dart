@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/auth_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
@@ -18,6 +19,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _studentIdController = TextEditingController();
   final _batchController = TextEditingController();
   final _sectionController = TextEditingController();
+  String? _avatarSelectionLabel;
 
   @override
   void dispose() {
@@ -32,6 +34,19 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return '$field is required';
     return null;
+  }
+
+  // Purpose: Keeps avatar upload UI ready for storage integration without changing existing profile logic.
+  void _onAvatarSelectPressed() {
+    setState(() {
+      _avatarSelectionLabel = 'avatar_placeholder.png';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Avatar upload UI is ready. Connect storage upload in Week 2 backend wiring.'),
+      ),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -54,7 +69,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       appBar: AppBar(title: const Text('Complete Profile')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: Form(
@@ -63,6 +78,46 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Avatar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 24,
+                              child: Icon(Icons.person_outline),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _avatarSelectionLabel ?? 'No avatar selected',
+                                style: const TextStyle(color: AppColors.textSecondary),
+                              ),
+                            ),
+                            OutlinedButton(
+                              onPressed: _onAvatarSelectPressed,
+                              child: const Text('Upload'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   AuthTextField(
                     label: 'Full Name',
                     controller: _fullNameController,

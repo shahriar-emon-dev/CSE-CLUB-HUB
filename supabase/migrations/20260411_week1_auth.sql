@@ -140,6 +140,7 @@ create index if not exists idx_profiles_role on public.profiles (role);
 -- 5) Query snippets ----------------------------------------------------------
 -- Insert manual fallback profile
 -- insert into public.profiles (id, email, role, role_request)
+-- values (auth.uid(), 'user@smuct.edu', 'student', false)
 -- values (auth.uid(), 'user@smuct.ac.bd', 'student', false)
 -- on conflict (id) do update set email = excluded.email;
 

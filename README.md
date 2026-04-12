@@ -15,52 +15,52 @@ Feature-first, clean architecture layout:
 
 ```text
 lib/
-	app.dart
-	main.dart
-	core/
-		config/
-			env_config.dart
-		constants/
-			app_colors.dart
-			app_routes.dart
-		errors/
-			app_exception.dart
-		router/
-			app_router.dart
-		validation/
-			input_validators.dart
-	features/
-		auth/
-			data/
-				repositories/
-					auth_repository_impl.dart
-				services/
-					supabase_auth_service.dart
-			domain/
-				entities/
-					user_profile.dart
-				repositories/
-					auth_repository.dart
-			presentation/
-				controllers/
-					auth_notifier.dart
-				providers/
-					auth_providers.dart
-				screens/
-					login_screen.dart
-					profile_setup_screen.dart
-					signup_screen.dart
-					splash_screen.dart
-				state/
-					auth_state.dart
-		home/
-			presentation/
-				screens/
-					home_screen.dart
-	shared/
-		widgets/
-			auth_text_field.dart
-			primary_button.dart
+  app.dart
+  main.dart
+  core/
+    config/
+      env_config.dart
+    constants/
+      app_colors.dart
+      app_routes.dart
+    errors/
+      app_exception.dart
+    router/
+      app_router.dart
+    validation/
+      input_validators.dart
+  features/
+    auth/
+      data/
+        repositories/
+          auth_repository_impl.dart
+        services/
+          supabase_auth_service.dart
+      domain/
+        entities/
+          user_profile.dart
+        repositories/
+          auth_repository.dart
+      presentation/
+        controllers/
+          auth_notifier.dart
+        providers/
+          auth_providers.dart
+        screens/
+          login_screen.dart
+          profile_setup_screen.dart
+          signup_screen.dart
+          splash_screen.dart
+        state/
+          auth_state.dart
+    home/
+      presentation/
+        screens/
+          home_screen.dart
+  shared/
+    widgets/
+      auth_text_field.dart
+      primary_button.dart
 ```
 
 ## Supabase Setup
@@ -69,6 +69,7 @@ lib/
 2. Apply the migration in `supabase/migrations/20260411_week1_auth.sql`.
 
 This migration includes:
+
 - `profiles` schema
 - auto profile creation trigger from `auth.users`
 - production RLS policies (self-access + admin controls)
@@ -78,25 +79,27 @@ If needed, the main table shape is:
 
 ```sql
 create table if not exists public.profiles (
-	id uuid primary key references auth.users(id) on delete cascade,
-	email text not null unique,
-	full_name text,
-	student_id text,
-	batch text,
-	section text,
-	department text not null default 'CSE',
-	avatar_url text,
-	role text not null default 'student',
-	role_request boolean not null default false,
-	created_at timestamptz not null default now()
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null unique,
+  full_name text,
+  student_id text,
+  batch text,
+  section text,
+  department text not null default 'CSE',
+  avatar_url text,
+  role text not null default 'student',
+  role_request boolean not null default false,
+  created_at timestamptz not null default now()
 );
 ```
 
-3. Authentication settings:
+1. Authentication settings:
+
 - Enable Email provider.
 - Optionally disable email confirmation for faster local testing.
 
-4. Get project credentials from Supabase dashboard:
+1. Get project credentials from Supabase dashboard:
+
 - Project URL
 - Anon key
 
@@ -105,8 +108,8 @@ create table if not exists public.profiles (
 ```bash
 flutter pub get
 flutter run \
-	--dart-define=SUPABASE_URL=YOUR_SUPABASE_URL \
-	--dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+  --dart-define=SUPABASE_URL=YOUR_SUPABASE_URL \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
 ### Windows PowerShell
@@ -127,12 +130,12 @@ Create `.env/dev.json` from `.env/example.json` and set your real values before 
 
 - Signup with email + password
 - Controlled signup account type:
-	- `Student` (default)
-	- `Request Executive Access` (approval required)
+  - `Student` (default)
+  - `Request Executive Access` (approval required)
 - Login with email + password
 - Logout
 - Persistent session handling through Supabase auth session recovery
-- University email validation (`@smuct.ac.bd` only)
+- University email validation (`@smuct.edu` or `@smuct.ac.bd`)
 - Profile completion flow for `full_name`, `student_id`, `batch`, `section`
 - Role fetch from `profiles` and role-aware home behavior
 - Auth-aware route guards (Splash/Login/Signup/Profile Setup/Home)

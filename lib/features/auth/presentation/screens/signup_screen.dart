@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/validation/input_validators.dart';
-import '../../../../shared/widgets/auth_text_field.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/auth_header.dart';
+import '../../../../shared/widgets/password_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
+import '../../../../shared/widgets/role_selector.dart';
 import '../providers/auth_providers.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -19,13 +21,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _requestExecutiveAccess = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _confirmPasswordValidator(String? value) {
+    final confirmedPassword = value ?? '';
+    if (confirmedPassword.isEmpty) return 'Confirm password is required';
+
+    if (confirmedPassword != _passwordController.text) {
+      // Why: We validate in UI first to avoid unnecessary auth requests when passwords differ.
+      return 'Passwords do not match';
+    }
+
+    return null;
   }
 
   Future<void> _submit() async {
@@ -44,85 +60,56 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final authState = ref.watch(authNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Create account',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Use your university email to join CSE Club Hub',
-                        style: TextStyle(color: AppColors.textSecondary),
+                      const AuthHeader(
+                        title: 'Create Account',
+                        subtitle: 'Use your university email to join CSE Club Hub',
                       ),
                       const SizedBox(height: 24),
-                      AuthTextField(
+                      AppTextField(
                         label: 'University Email',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
+                        prefixIcon: Icons.email_outlined,
                         validator: InputValidators.email,
                       ),
                       const SizedBox(height: 16),
-                      AuthTextField(
+                      PasswordField(
                         label: 'Password',
                         controller: _passwordController,
-                        keyboardType: TextInputType.visiblePassword,
-                        obscureText: true,
                         textInputAction: TextInputAction.done,
                         validator: InputValidators.password,
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Account Type',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                      const SizedBox(height: 16),
+                      PasswordField(
+                        label: 'Confirm Password',
+                        controller: _confirmPasswordController,
+                        textInputAction: TextInputAction.done,
+                        validator: _confirmPasswordValidator,
                       ),
-                      const SizedBox(height: 8),
-                      RadioGroup<bool>(
-                        groupValue: _requestExecutiveAccess,
+                      const SizedBox(height: 20),
+                      RoleSelector(
+                        requestExecutiveAccess: _requestExecutiveAccess,
                         onChanged: (value) {
-                          if (value == null) return;
                           setState(() => _requestExecutiveAccess = value);
                         },
-                        child: Column(
-                          children: const [
-                            RadioListTile<bool>(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text('Student'),
-                              value: false,
-                            ),
-                            RadioListTile<bool>(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text('Request Executive Access'),
-                              value: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Text(
-                        'Executive access requires admin approval',
-                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 24),
                       if (authState.errorMessage != null)
@@ -135,7 +122,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       if (authState.errorMessage != null)
                         const SizedBox(height: 16),
                       PrimaryButton(
-                        label: 'Create Account',
+                        label: 'Continue',
                         isLoading: authState.isLoading,
                         onPressed: _submit,
                       ),

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_routes.dart';
 import '../../../../core/validation/input_validators.dart';
-import '../../../../shared/widgets/auth_text_field.dart';
+import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/auth_header.dart';
+import '../../../../shared/widgets/password_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 
@@ -43,48 +44,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Welcome back',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Login with your university account',
-                        style: TextStyle(color: AppColors.textSecondary),
+                      const AuthHeader(
+                        title: 'Welcome Back',
+                        subtitle: 'Login with your university account',
                       ),
                       const SizedBox(height: 24),
-                      AuthTextField(
+                      AppTextField(
                         label: 'University Email',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
+                        prefixIcon: Icons.email_outlined,
                         validator: InputValidators.email,
                       ),
                       const SizedBox(height: 16),
-                      AuthTextField(
+                      PasswordField(
                         label: 'Password',
                         controller: _passwordController,
-                        keyboardType: TextInputType.visiblePassword,
-                        obscureText: true,
                         textInputAction: TextInputAction.done,
                         validator: InputValidators.password,
                       ),
@@ -106,7 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 16),
                       TextButton(
                         onPressed: () => context.push(AppRoutes.signup),
-                        child: const Text('No account? Create one'),
+                        child: const Text('Create Account'),
                       ),
                     ],
                   ),

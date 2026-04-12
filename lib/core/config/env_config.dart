@@ -1,8 +1,19 @@
 class EnvConfig {
   EnvConfig._();
 
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const _fallbackSupabaseUrl =
+      'https://ptlmzzfwbvyohtwfdqlj.supabase.co';
+  static const _fallbackSupabaseAnonKey =
+      'sb_publishable_UOKzCkOzKMHruHX6JlYh8g_ugviSW25';
+
+  static const supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: _fallbackSupabaseUrl,
+  );
+  static const supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: _fallbackSupabaseAnonKey,
+  );
 
   static void validate() {
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {

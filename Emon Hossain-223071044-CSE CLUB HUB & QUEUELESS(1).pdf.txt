@@ -1,0 +1,340 @@
+FILE: Emon Hossain-223071044-CSE CLUB HUB & QUEUELESS(1).pdf
+PAGES: 4
+
+--- PAGE 1 ---
+A  Centralized  Mobile  Platform  for  CSE  Department  
+Clubs 
+1.   Introduction  CSE  Club  Hub  is  a  cross-platform  mobile  application  designed  specifically  for  the  
+Computer
+ 
+Science
+ 
+and
+ 
+Engineering
+ 
+department.
+ 
+The
+ 
+app
+ 
+serves
+ 
+as
+ 
+a
+ 
+centralized
+ 
+digital
+ 
+platform
+ 
+for
+ 
+all
+ 
+five
+ 
+departmental
+ 
+clubs,
+ 
+enabling
+ 
+club
+ 
+executives
+ 
+to
+ 
+publish
+ 
+notices
+ 
+and
+ 
+announcements
+ 
+while
+ 
+allowing
+ 
+students
+ 
+to
+ 
+stay
+ 
+updated
+ 
+through
+ 
+a
+ 
+personalized,
+ 
+real-time
+ 
+feed.
+ Currently,  club  announcements  are  scattered  across  multiple  WhatsApp  groups,  Facebook  
+pages,
+ 
+and
+ 
+physical
+ 
+notice
+ 
+boards
+ 
+—
+ 
+leading
+ 
+to
+ 
+missed
+ 
+events,
+ 
+confusion,
+ 
+and
+ 
+poor
+ 
+student
+ 
+engagement.
+ 
+CSE
+ 
+Club
+ 
+Hub
+ 
+solves
+ 
+this
+ 
+by
+ 
+bringing
+ 
+all
+ 
+five
+ 
+clubs
+ 
+into
+ 
+one
+ 
+unified,
+ 
+role-based
+ 
+mobile
+ 
+application
+ 
+built
+ 
+with
+ 
+Flutter
+ 
+and
+ 
+powered
+ 
+by
+ 
+Firebase.
+ 
+2.  Problem  Statement  The  CSE  department  hosts  five  active  student  clubs,  each  running  independently  with  no  
+unified
+ 
+communication
+ 
+channel.
+ 
+This
+ 
+results
+ 
+in
+ 
+several
+ 
+recurring
+ 
+problems:
+   ●  
+ 
+Students  miss  important  notices  because  they  are  spread  across  multiple  
+platforms.
+ ●  There  is  no  structured  way  to  distinguish  club  executives  from  regular  
+students.
+ ●  Events  go  unattended  because  reminders  are  inconsistent  and  unreliable.  ●  Club  executives  have  no  dedicated  tool  to  manage  their  community  posts.  ●  There  is  no  centralized  archive  of  past  club  activities  and  notices.  CSE  Club  Hub  directly  addresses  all  of  these  issues  through  a  single,  purpose-built  
+application.
+ 
+3.  Project  Objectives  
+1.
+     
+Build  a  Flutter-based  cross-platform  mobile  app  for  Android  and  iOS.  2.
+     
+Integrate  all  five  CSE  department  clubs  into  one  unified  platform.  3.
+     
+Implement  a  role-based  access  system  (Admin,  Executive,  Student).  
+
+--- PAGE 2 ---
+4.
+     
+Enable  real-time  push  notifications  for  club  announcements  and  events.  5.
+     
+Provide  executives  with  tools  to  post  notices  (text  and  image)  and  manage  events.  6.
+     
+Allow  students  to  follow  specific  clubs  and  receive  personalized  updates.  7.
+     
+Make  the  app  deployable  on  the  Google  Play  Store  for  real-world  usage.  
+4.  Project  Scope  
+4.1  Clubs  Covered   Index  Club  Name  Focus  Area  
+1  
+Machine  Learning  Club  AI,  Data  Science,  Deep  Learning  
+2  
+Competitive  Programming  Club  Algorithms,  Contests,  Problem  Solving  
+3  
+IoT  &  Robotics  Club  Hardware,  Embedded  Systems,  Automation  
+4  
+Web  Development  Club  Frontend,  Backend,  Full  Stack  Web  
+5  
+Software  Development  Club  App  Dev,  System  Design,  Software  Engineering  
+6  Cyber  security  Club   Cyber  security   
+4.2  User  Roles   Role   Permission  
+Super  Admin  Manage  all  clubs,  assign  executives,  remove  any  content  
+Club  Executive  Post  notices  &  events  in  own  club,  pin  posts,  manage  club  profile  
+Regular  Students  Follow  clubs,  view  posts,  react  &  comment,  RSVP  to  events    
+5.  Core  Features  
+
+--- PAGE 3 ---
+5.1  Authentication  &  Profiles  ●  Email/password  signup  with  student  ID  validation  ●  Profile  setup:  name,  batch,  section,  department,  avatar  ●  Role  assignment  managed  by  Super  Admin  
+5.2  Club  Feed  ●  
+ 
+Personalized  home  feed  showing  posts  from  followed  clubs  ●  
+ 
+Department-wide  feed  showing  all  clubs'  posts  ●  
+ 
+Post  creation  with  text  and  image  upload  (executives  only)  ●  
+ 
+Pin  important  posts  to  the  top  of  the  feed  ●  
+ 
+Reactions  (Like,  Fire,  Clap)  and  comment  threads  
+5.3  Events  Module  ●  
+  
+Executives  can  create  events  with  title,  description,  date,  time,  and  venue  ●  
+ 
+Students  can  RSVP  as  Going  or  Interested  ●  Automatic  push  notification  reminder  24  hours  before  the  event  
+5.4  Smart  Notifications  ●  Instant  push  notification  when  a  followed  club  posts  a  notice  ●  
+ 
+Event  reminders  sent  automatically  via  Firebase  Cloud  Messaging  ●  Notification  center  with  read/unread  status  
+5.5  Search  &  Discovery  ●  Search  posts,  events,  clubs,  and  users  ●  
+ 
+Browse  all  clubs  and  follow/unfollow  with  one  tap         
+6.  Technical  Architecture  
+6.1  Technology  Stack   
+
+--- PAGE 4 ---
+Layer   Technology  Purpose  Frontend  Flutter  (Dart)  Cross-platform  UI  for  Android  &  iOS  Backend  Firebase  Firestore  Real-time  NoSQL  cloud  database  Authentication  Firebase  Auth  Secure  login  and  role  management  File  Storage  Firebase  Storage  Image  uploads  for  posts  and  profiles  Notifications  Firebase  Cloud  Messaging  Push  notifications  for  all  users   
+ 
+7.  Expected  Outcomes  ●  
+ 
+A  fully  functional,  publishable  Flutter  mobile  application  for  Android.  ●  All  five  CSE  clubs  are  onboarded  with  real  executive  accounts  pre-configured.  ●  Real-time  notices  and  event  announcements  are  replacing  fragmented  WhatsApp  groups.  ●  Demonstrated  use  of  Flutter,  Firebase,  real-time  streams,  and  role-based  access  control.  ●  
+ 
+A  deployable  app  on  the  Google  Play  Store  for  genuine  university  community  use.  
+10.  Conclusion  
+CSE  Club  Hub  represents  a  practical,  impactful,  and  technically  rich  mobile  application  project  that  aligns  
+with
+ 
+the
+ 
+goals
+ 
+of
+ 
+the
+ 
+Mobile
+ 
+Application
+ 
+Development
+ 
+course.
+ 
+With
+ 
+a
+ 
+clear
+ 
+problem
+ 
+statement,
+ 
+defined
+ 
+scope,
+ 
+realistic
+ 
+timeline,
+ 
+and
+ 
+real-world
+ 
+deployment
+ 
+ambition,
+ 
+this
+ 
+project
+ 
+stands
+ 
+as
+ 
+both
+ 
+a
+ 
+strong
+ 
+academic
+ 
+submission
+ 
+and
+ 
+a
+ 
+genuine
+ 
+contribution
+ 
+to
+ 
+the
+ 
+CSE
+ 
+department
+ 
+community.
+ 
+
