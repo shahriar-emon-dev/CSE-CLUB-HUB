@@ -10,6 +10,18 @@ class SupabaseAuthService {
 
   User? get currentUser => _client.auth.currentUser;
 
+  // Purpose: Convert low-level PostgREST errors into actionable user-facing messages.
+  String _mapPostgrestError(PostgrestException error) {
+    // Why: RLS recursion produces a raw JSON-ish DB error that confuses end users.
+    if (error.code == '42P17') {
+      return 'Profile permission rules are misconfigured. Apply the latest Supabase migration and try again.';
+    }
+
+    final message = error.message.trim();
+    if (message.isNotEmpty) return message;
+    return 'Database request failed. Please try again.';
+  }
+
   Stream<User?> authStateChanges() {
     return _client.auth.onAuthStateChange.map((event) => event.session?.user);
   }
@@ -28,7 +40,7 @@ class SupabaseAuthService {
       if (data == null) return null;
       return UserProfile.fromMap(data);
     } on PostgrestException catch (error) {
-      throw AppException(error.message);
+      throw AppException(_mapPostgrestError(error));
     } catch (_) {
       throw const AppException('Unable to load profile right now.');
     }
@@ -53,7 +65,7 @@ class SupabaseAuthService {
         'section': section,
       }).eq('id', user.id);
     } on PostgrestException catch (error) {
-      throw AppException(error.message);
+      throw AppException(_mapPostgrestError(error));
     } catch (_) {
       throw const AppException('Unable to save profile. Please retry.');
     }
@@ -84,7 +96,7 @@ class SupabaseAuthService {
     } on AuthException catch (error) {
       throw AppException(error.message);
     } on PostgrestException catch (error) {
-      throw AppException(error.message);
+      throw AppException(_mapPostgrestError(error));
     } catch (_) {
       throw const AppException('Unable to complete signup. Please try again.');
     }
