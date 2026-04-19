@@ -1,0 +1,236 @@
+# 🧩 CSE Club Hub — Full Trello TODO List (Project-Wide)
+
+---
+
+## 🟢 WEEK 1 — Setup & Authentication
+
+* Initialize Flutter Project
+  → Setup clean architecture, folders, dependencies
+
+* Configure Supabase Backend
+  → Setup auth, database, environment variables
+
+* Build Authentication Screens
+  → Login, Signup, Splash UI
+
+* Implement Auth Logic
+  → Signup, login, logout, session persistence
+
+* University Email Validation
+  → Restrict to university domain
+
+* Create Profiles Table + Trigger
+  → Auto-create user profile on signup
+
+* Setup Role System (Student Default)
+  → Role stored securely, no client override
+
+* Setup Navigation Flow
+  → Auth-based routing (login → home)
+
+---
+
+## 🟢 WEEK 2 — Profiles & Clubs
+
+* Profile Setup Screen
+  → Collect name, ID, batch, section, avatar
+
+* Profile Dashboard (ALL USERS) ⭐
+  → View + edit profile, stats, logout
+
+* Avatar Upload System
+  → Upload and store user images
+
+* Build Clubs List Screen
+  → Show all clubs with basic info
+
+* Club Details Page
+  → Show club info, bio, executives
+
+* Follow/Unfollow System
+  → User can follow clubs
+
+---
+
+## 🟢 WEEK 3 — Post System
+
+* Create Post (Executive Only)
+  → Text + image post creation
+
+* Post Storage & Retrieval
+  → Save posts in database
+
+* Build Feed UI
+  → Display posts in list
+
+* Image Upload for Posts
+  → Store and render images
+
+---
+
+## 🟢 WEEK 4 — Feed & Interactions
+
+* Personalized Feed
+  → Show posts from followed clubs
+
+* Global Feed
+  → Show all club posts
+
+* Reaction System
+  → Like / Fire / Clap
+
+* Comment System
+  → Add and display comments
+
+* Pin Post Feature
+  → Executive can pin one post
+
+---
+
+## 🟢 WEEK 5 — Events Module
+
+* Create Event (Executive)
+  → Title, description, date, venue
+
+* Events List Screen
+  → Show upcoming + past events
+
+* Event Details Screen
+  → Full event info
+
+* RSVP System
+  → Going / Interested
+
+* Event Edit/Delete
+  → Executive control
+
+---
+
+## 🟢 WEEK 6 — Notifications
+
+* Setup Push Notification System
+  → Integrate push service
+
+* Trigger Notifications
+  → On post, event, comment
+
+* Notification Center Screen
+  → Show all notifications
+
+* Read/Unread System
+  → Mark notifications
+
+* 24-Hour Reminder System
+  → Event reminder before start
+
+---
+
+## 🟢 WEEK 7 — Admin & Search
+
+* Admin Dashboard ⭐
+  → Overview of system stats
+
+* User Management
+  → Promote/revoke executive roles
+
+* Content Moderation
+  → Delete posts/events
+
+* Event Management (Admin)
+  → Full control over events
+
+* Search Screen ⭐
+  → Search posts, events, clubs, users
+
+* Real-Time Search
+  → Live results while typing
+
+---
+
+## 🟢 WEEK 7 — Executive Dashboard ⭐ (CRITICAL)
+
+* Build Executive Dashboard
+  → Central control panel for executives
+
+* Manage Posts
+  → View, edit, delete, pin posts
+
+* Manage Events
+  → Create, edit, cancel events
+
+* Manage Club Profile
+  → Update club info
+
+* Quick Actions Panel
+  → Create post / event quickly
+
+---
+
+## 🟢 WEEK 8 — Polish & Release
+
+* UI/UX Refinement
+  → Improve spacing, consistency
+
+* Dark Mode Support
+  → Full dark theme
+
+* Error & Empty States
+  → Handle all edge cases
+
+* Performance Optimization
+  → Fast loading, smooth UI
+
+* Security Hardening ⭐
+  → Enforce RLS, role protection
+
+* Bug Fixing
+  → Fix all issues
+
+* Build APK
+  → Prepare for submission
+
+---
+
+## 🔐 SECURITY TASKS (GLOBAL)
+
+* Enforce Role-Based Access in DB
+  → RLS policies for all actions
+
+* Prevent Role Manipulation
+  → No client-side role assignment
+
+* Validate University Email
+  → Secure signup
+
+* Protect Admin Actions
+  → Only admin can access
+
+* Audit Logs
+  → Track admin actions
+
+---
+
+## 🧱 DATABASE TASKS
+
+* Create Profiles Table
+* Create Clubs Table
+* Create Posts Table
+* Create Comments Table
+* Create Events Table
+* Create RSVP Table
+* Create Notifications Table
+* Create Admin Logs Table
+
+---
+
+## ✅ FINAL GOAL (DONE CRITERIA)
+
+* Auth system fully working
+* Profile + club system working
+* Feed + interaction complete
+* Events + RSVP complete
+* Notifications working
+* Admin panel functional
+* Executive dashboard functional
+* Secure role-based system
+* App ready for beta release

@@ -6,50 +6,43 @@ import '../../core/constants/app_colors.dart';
 // CORE BUSINESS LOGIC
 // ==========================================
 
-class AppTextField extends StatelessWidget {
-  const AppTextField({
+class DropdownField extends StatelessWidget {
+  const DropdownField({
     required this.label,
-    required this.controller,
-    required this.keyboardType,
+    required this.value,
+    required this.items,
+    required this.onChanged,
     required this.validator,
-    this.textInputAction,
-    this.prefixIcon,
-    this.hintText,
-    this.onChanged,
     super.key,
   });
 
   final String label;
-  final TextEditingController controller;
-  final TextInputType keyboardType;
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
   final String? Function(String?) validator;
-  final TextInputAction? textInputAction;
-  final IconData? prefixIcon;
-  final String? hintText;
-  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
       validator: validator,
-      textInputAction: textInputAction,
-      onChanged: onChanged,
       style: const TextStyle(
         color: AppColors.textPrimary,
         fontSize: 14,
         fontFamily: 'Inter',
       ),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
-        hintText: hintText,
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
           fontFamily: 'Inter',
           fontSize: 14,
         ),
-        prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -66,6 +59,14 @@ class AppTextField extends StatelessWidget {
           borderSide: const BorderSide(color: AppColors.cta, width: 1.2),
         ),
       ),
+      items: items
+          .map(
+            (value) => DropdownMenuItem<String>(
+              value: value,
+              child: Text(value),
+            ),
+          )
+          .toList(),
     );
   }
 }

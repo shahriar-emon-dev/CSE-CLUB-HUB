@@ -25,3 +25,17 @@ final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref
   final repository = ref.watch(authRepositoryProvider);
   return AuthNotifier(repository);
 });
+
+// ==========================================
+// CORE BUSINESS LOGIC
+// ==========================================
+
+// Purpose: Single source of truth for auth routing state across app start, login, and logout.
+final authSessionProvider = StreamProvider<User?>((ref) async* {
+  final client = ref.watch(supabaseClientProvider);
+
+  // Why: On web, currentSession may already exist before auth stream emits.
+  yield client.auth.currentSession?.user;
+
+  yield* client.auth.onAuthStateChange.map((event) => event.session?.user);
+});

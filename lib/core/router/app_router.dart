@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/domain/entities/user_profile.dart';
@@ -87,6 +88,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 class RouterNotifier extends ChangeNotifier {
   RouterNotifier(this.ref) {
+    ref.listen<AsyncValue<User?>>(
+      authSessionProvider,
+      (_, __) {
+        notifyListeners();
+      },
+    );
+
     ref.listen<AuthState>(authNotifierProvider, (_, __) {
       notifyListeners();
     });
@@ -95,26 +103,21 @@ class RouterNotifier extends ChangeNotifier {
   final Ref ref;
 
   String? redirect(BuildContext context, GoRouterState state) {
+    final sessionState = ref.read(authSessionProvider);
     final authState = ref.read(authNotifierProvider);
-    final isLoading = authState.isLoading;
-    final isAuthenticated = authState.isAuthenticated;
-    final needsProfileSetup = authState.needsProfileSetup;
-    final role = authState.role;
     final location = state.matchedLocation;
+    final isAuthenticated = sessionState.valueOrNull != null;
+    final role = authState.role;
 
     final isAuthRoute =
         location == AppRoutes.login || location == AppRoutes.signup;
 
-    if (isLoading) {
+    if (sessionState.isLoading) {
       return location == AppRoutes.splash ? null : AppRoutes.splash;
     }
 
     if (!isAuthenticated) {
       return isAuthRoute ? null : AppRoutes.login;
-    }
-
-    if (needsProfileSetup) {
-      return location == AppRoutes.profileSetup ? null : AppRoutes.profileSetup;
     }
 
     if (
