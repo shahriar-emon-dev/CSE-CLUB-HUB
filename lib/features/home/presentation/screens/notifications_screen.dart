@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/action_button.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/loading_skeleton.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/role_badge.dart';
 import '../../../../shared/widgets/section_header.dart';
 import '../../../../shared/widgets/stats_card.dart';
@@ -110,6 +112,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     icon: Icons.delete_outline,
                     isPrimary: true,
                     onPressed: () async {
+                      // Capture ScaffoldMessenger before async operation to avoid stale context
+                      final messenger = ScaffoldMessenger.of(context);
+                      
                       final shouldClear = await showConfirmActionDialog(
                         context,
                         title: 'Clear all notifications?',
@@ -119,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       );
 
                       if (shouldClear != true) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         const SnackBar(content: Text('Notifications UI cleared. Connect to backend when ready.')),
                       );
                     },
@@ -146,6 +151,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.home,
       ),
     );
   }

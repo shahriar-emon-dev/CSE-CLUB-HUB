@@ -88,10 +88,14 @@ class SupabaseAuthService {
           'id': user.id,
           'email': email,
           'role': 'student',
-          'role_request': requestExecutiveAccess,
+          'role_request': false,
         };
 
         await _client.from('profiles').upsert(profile);
+
+        if (requestExecutiveAccess) {
+          await this.requestExecutiveAccess();
+        }
       }
     } on AuthException catch (error) {
       throw AppException(error.message);
@@ -122,6 +126,26 @@ class SupabaseAuthService {
       throw AppException(error.message);
     } catch (_) {
       throw const AppException('Unable to logout right now. Please retry.');
+    }
+  }
+
+  Future<void> requestExecutiveAccess() async {
+    try {
+      await _client.rpc('request_executive_access');
+    } on PostgrestException catch (error) {
+      throw AppException(_mapPostgrestError(error));
+    } catch (_) {
+      throw const AppException('Unable to submit executive request right now.');
+    }
+  }
+
+  Future<void> withdrawExecutiveRequest() async {
+    try {
+      await _client.rpc('withdraw_executive_request');
+    } on PostgrestException catch (error) {
+      throw AppException(_mapPostgrestError(error));
+    } catch (_) {
+      throw const AppException('Unable to withdraw executive request right now.');
     }
   }
 }

@@ -150,5 +150,5 @@ Create `.env/dev.json` from `.env/example.json` and set your real values before 
 ## Notes For Production
 
 - Keep Supabase keys in CI/CD secrets and inject via `--dart-define`.
-- Add crash reporting/logging (Sentry/Firebase Crashlytics) for runtime observability.
+- Add crash reporting/logging (Sentry/OpenTelemetry) for runtime observability.
 - Consider email verification + password reset screens for full auth lifecycle.

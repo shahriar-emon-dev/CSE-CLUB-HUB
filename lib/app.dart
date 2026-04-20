@@ -13,6 +13,7 @@ class App extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'CSE Club Hub',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.cta,

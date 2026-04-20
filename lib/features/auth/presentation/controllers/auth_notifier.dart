@@ -141,6 +141,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> requestExecutiveAccess() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      await _repository.requestExecutiveAccess();
+      final profile = await _repository.fetchMyProfile();
+      state = state.copyWith(isLoading: false, profile: profile, clearError: true);
+    } on AppException catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.message);
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unable to submit executive access request.',
+      );
+    }
+  }
+
+  Future<void> withdrawExecutiveRequest() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      await _repository.withdrawExecutiveRequest();
+      final profile = await _repository.fetchMyProfile();
+      state = state.copyWith(isLoading: false, profile: profile, clearError: true);
+    } on AppException catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.message);
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unable to withdraw executive access request.',
+      );
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();

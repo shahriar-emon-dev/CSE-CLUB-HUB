@@ -49,6 +49,16 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> requestExecutiveAccess() {
+    return _service.requestExecutiveAccess();
+  }
+
+  @override
+  Future<void> withdrawExecutiveRequest() {
+    return _service.withdrawExecutiveRequest();
+  }
+
+  @override
   Future<void> signUpWithEmail({
     required String email,
     required String password,

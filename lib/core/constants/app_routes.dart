@@ -19,6 +19,7 @@ class AppRoutes {
   static const clubs = '/clubs';
   static const clubProfile = '/club-profile';
   static const events = '/events';
+  static const calendar = '/calendar';
   static const notifications = '/notifications';
   static const profileDashboard = '/profile-dashboard';
   static const executiveDashboard = '/executive-dashboard';

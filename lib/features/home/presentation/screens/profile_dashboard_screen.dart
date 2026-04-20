@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/action_button.dart';
 import '../../../../shared/widgets/app_header.dart';
-import '../../../../shared/widgets/modal_dialog.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/role_badge.dart';
 import '../../../../shared/widgets/stats_card.dart';
 import '../../../../shared/widgets/user_row.dart';
@@ -183,7 +185,7 @@ class ProfileDashboardScreen extends ConsumerWidget {
                         crossAxisCount: columns,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: columns == 1 ? 3.4 : 1.8,
+                        childAspectRatio: columns == 1 ? 2.5 : 1.8,
                         children: const [
                           StatsCard(
                             label: 'Clubs followed',
@@ -229,25 +231,6 @@ class ProfileDashboardScreen extends ConsumerWidget {
                           },
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ActionButton(
-                          label: 'Logout',
-                          icon: Icons.logout,
-                          onPressed: () async {
-                            final shouldLogout = await showConfirmActionDialog(
-                              context,
-                              title: 'Logout from profile dashboard?',
-                              message: 'You will be signed out from the current session.',
-                              confirmLabel: 'Logout',
-                              isDestructive: true,
-                            );
-
-                            if (shouldLogout != true) return;
-                            ref.read(authNotifierProvider.notifier).signOut();
-                          },
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -259,11 +242,37 @@ class ProfileDashboardScreen extends ConsumerWidget {
                       height: 1.5,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  ActionButton(
+                    label: 'Logout',
+                    icon: Icons.logout,
+                    onPressed: () async {
+                      final shouldLogout = await showConfirmActionDialog(
+                        context,
+                        title: 'Logout from profile dashboard?',
+                        message: 'You will be signed out from the current session.',
+                        confirmLabel: 'Logout',
+                        isDestructive: true,
+                      );
+
+                      if (shouldLogout != true) return;
+
+                      await ref.read(authNotifierProvider.notifier).signOut();
+                      ref.invalidate(authNotifierProvider);
+                      ref.invalidate(authSessionProvider);
+
+                      if (!context.mounted) return;
+                      context.go(AppRoutes.login);
+                    },
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.profileDashboard,
       ),
     );
   }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/action_button.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/event_card_widget.dart';
 import '../../../../shared/widgets/loading_skeleton.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/modal_dialog.dart';
 import '../../../../shared/widgets/post_card_widget.dart';
 import '../../../../shared/widgets/role_badge.dart';
@@ -92,11 +95,7 @@ class ExecutiveDashboardScreen extends StatelessWidget {
                         child: ActionButton(
                           label: 'Create Event',
                           icon: Icons.event_available_outlined,
-                          onPressed: () => _showActionDialog(
-                            context,
-                            title: 'Create Event',
-                            message: 'This is a UI-only action. Connect it to your event workflow later.',
-                          ),
+                          onPressed: () => _showCreateEventSheet(context),
                         ),
                       ),
                     ],
@@ -210,6 +209,9 @@ class ExecutiveDashboardScreen extends StatelessWidget {
           ),
         ),
       ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.profileDashboard,
+      ),
     );
   }
 
@@ -230,5 +232,235 @@ class ExecutiveDashboardScreen extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _ClubOption {
+  const _ClubOption({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
+Future<void> _showCreateEventSheet(BuildContext context) async {
+  final client = Supabase.instance.client;
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final venueController = TextEditingController();
+
+  try {
+    final clubsResponse = await client
+        .from('clubs')
+        .select('id,name')
+        .order('name', ascending: true);
+
+    final clubs = (clubsResponse as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .map((row) => _ClubOption(
+              id: row['id'].toString(),
+              name: row['name']?.toString() ?? 'Club',
+            ))
+        .toList();
+
+    if (!context.mounted) return;
+
+    if (clubs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No clubs available for event creation.')),
+      );
+      return;
+    }
+
+    String selectedClubId = clubs.first.id;
+    DateTime? selectedDateTime;
+    bool isSubmitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            Future<void> pickDateTime() async {
+              final now = DateTime.now();
+              final pickedDate = await showDatePicker(
+                context: sheetContext,
+                firstDate: now,
+                lastDate: DateTime(now.year + 5),
+                initialDate: selectedDateTime ?? now,
+              );
+
+              if (!sheetContext.mounted) return;
+              if (pickedDate == null) return;
+
+              final pickedTime = await showTimePicker(
+                context: sheetContext,
+                initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? now),
+              );
+
+              if (!sheetContext.mounted) return;
+              if (pickedTime == null) return;
+
+              setSheetState(() {
+                selectedDateTime = DateTime(
+                  pickedDate.year,
+                  pickedDate.month,
+                  pickedDate.day,
+                  pickedTime.hour,
+                  pickedTime.minute,
+                );
+              });
+            }
+
+            Future<void> submit() async {
+              final title = titleController.text.trim();
+              final description = descriptionController.text.trim();
+              final venue = venueController.text.trim();
+
+              if (title.isEmpty || description.isEmpty || venue.isEmpty || selectedDateTime == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Please fill all fields before creating the event.')),
+                );
+                return;
+              }
+
+              setSheetState(() => isSubmitting = true);
+
+              try {
+                await client.from('events').insert({
+                  'title': title,
+                  'description': description,
+                  'event_datetime': selectedDateTime!.toUtc().toIso8601String(),
+                  'venue': venue,
+                  'club_id': selectedClubId,
+                });
+
+                if (!sheetContext.mounted) return;
+
+                Navigator.of(sheetContext).pop();
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Event created successfully.')),
+                );
+              } catch (error) {
+                if (!sheetContext.mounted) return;
+
+                setSheetState(() => isSubmitting = false);
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(content: Text('Failed to create event: $error')),
+                );
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Create Event',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        hintText: 'Enter event title',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: descriptionController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'Write event description',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: venueController,
+                      decoration: const InputDecoration(
+                        labelText: 'Venue',
+                        hintText: 'Enter event venue',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedClubId,
+                      decoration: const InputDecoration(labelText: 'Club'),
+                      items: clubs
+                          .map(
+                            (club) => DropdownMenuItem<String>(
+                              value: club.id,
+                              child: Text(club.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => selectedClubId = value);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: isSubmitting ? null : pickDateTime,
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: Text(
+                        selectedDateTime == null
+                            ? 'Select event date & time'
+                            : 'Selected: ${selectedDateTime!.toLocal()}',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isSubmitting ? null : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: isSubmitting ? null : submit,
+                            child: Text(isSubmitting ? 'Creating...' : 'Create Event'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Unable to load clubs: $error')),
+    );
+  } finally {
+    titleController.dispose();
+    descriptionController.dispose();
+    venueController.dispose();
   }
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/club_card_widget.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/event_card_widget.dart';
 import '../../../../shared/widgets/input_field.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/post_card_widget.dart';
 import '../../../../shared/widgets/role_badge.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -118,6 +120,9 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.search,
       ),
     );
   }

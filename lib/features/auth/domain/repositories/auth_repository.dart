@@ -28,4 +28,8 @@ abstract class AuthRepository {
   });
 
   Future<void> signOut();
+
+  Future<void> requestExecutiveAccess();
+
+  Future<void> withdrawExecutiveRequest();
 }

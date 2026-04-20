@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/action_button.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/event_card_widget.dart';
 import '../../../../shared/widgets/input_field.dart';
 import '../../../../shared/widgets/loading_skeleton.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/modal_dialog.dart';
 import '../../../../shared/widgets/post_card_widget.dart';
 import '../../../../shared/widgets/role_badge.dart';
@@ -214,6 +216,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.profileDashboard,
       ),
     );
   }

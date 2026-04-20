@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/action_button.dart';
 import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/main_bottom_nav.dart';
 import '../../../../shared/widgets/post_card_widget.dart';
 import '../../../../shared/widgets/role_badge.dart';
 import '../../../../shared/widgets/section_header.dart';
@@ -78,26 +80,20 @@ class _ClubProfileScreenState extends State<ClubProfileScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: SizedBox(
-                                height: 120,
-                                child: StatsCard(
-                                  label: 'Members',
-                                  value: '316',
-                                  icon: Icons.groups_2_outlined,
-                                  accentColor: Colors.white,
-                                ),
+                              child: StatsCard(
+                                label: 'Members',
+                                value: '316',
+                                icon: Icons.groups_2_outlined,
+                                accentColor: Colors.white,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: SizedBox(
-                                height: 120,
-                                child: StatsCard(
-                                  label: 'Posts',
-                                  value: '48',
-                                  icon: Icons.post_add_outlined,
-                                  accentColor: Colors.white,
-                                ),
+                              child: StatsCard(
+                                label: 'Posts',
+                                value: '48',
+                                icon: Icons.post_add_outlined,
+                                accentColor: Colors.white,
                               ),
                             ),
                           ],
@@ -173,6 +169,9 @@ class _ClubProfileScreenState extends State<ClubProfileScreen> {
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: const MainBottomNav(
+        activeRoute: AppRoutes.clubs,
       ),
     );
   }

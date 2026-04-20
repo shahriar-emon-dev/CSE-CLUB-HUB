@@ -9,10 +9,10 @@
 
 - The product vision is a centralized mobile app for CSE clubs with role-based access.
 - Target roles are three-tier:
-  - Super Admin
+  - Admin
   - Club Executive
   - Regular Student
-- Role governance is strict: executive role assignment is controlled by Super Admin only.
+- Role governance is strict: executive role assignment is controlled by Admin only.
 - Core modules required by SRS:
   - Authentication and profile management
   - Club feed and interactions
@@ -22,19 +22,18 @@
   - Search and discovery
   - Admin panel
 - Timeline in SRS is explicitly 8 weeks.
-- Primary backend in the PDFs is Firebase (Auth, Firestore, Storage, FCM).
+- Primary backend for implementation is Supabase (Auth, Postgres, Storage, Realtime).
 
 ## Architecture/Scope Notes
 
 - The current project codebase uses Supabase for auth/profile flows.
-- Requirement-level features from SRS can still be implemented with Supabase equivalents:
-  - Firebase Auth -> Supabase Auth
-  - Firestore -> Supabase Postgres + Realtime
-  - Firebase Storage -> Supabase Storage
-  - FCM -> push service integration (can still use FCM for mobile delivery)
-- Decision needed before full build-out:
-  - Option A: Continue with Supabase stack (recommended for current code continuity)
-  - Option B: Migrate to Firebase to match SRS wording exactly
+- Requirement-level features from SRS are implemented with Supabase-native modules:
+  - Supabase Auth
+  - Supabase Postgres + Realtime
+  - Supabase Storage
+  - Supabase-backed notification queue and delivery workers
+- Backend decision is frozen:
+  - Supabase is the authoritative backend for all modules.
 
 ## Functional Requirements to Implement (FR)
 
@@ -66,8 +65,10 @@
 
 ### Club Management (FR-17 to FR-21)
 
-- List all six clubs + more (can add)
-- Follow/unfollow clubs( react, comment, can share in other social platform)
+- List all clubs (initially seeded with six core CSE clubs, expandable by Admin)
+- Follow/unfollow clubs controls personalized feed composition
+- React/comment permissions are independent from follow state
+- Sharing behavior is a standalone action with explicit platform intent
 - Club details page with bio/cover/logo
 - Show executive member list----andmin can see all the userdetails
 - Executive can update club profile data
@@ -79,7 +80,7 @@
 - RSVP statuses: Going / Interested
 - Event edit/cancel by executive
 - Show RSVP counts
-- 24-hour reminder notifications
+- 24-hour reminder notifications with guard: if event starts in <24h, queue immediate "upcoming soon" reminder
 
 ### Notifications (FR-28 to FR-32)
 
@@ -239,7 +240,7 @@
 
 ## Next Immediate Steps (Execution Order)
 
-1. Finalize backend direction (Firebase strict vs Supabase equivalent).
+1. Keep Supabase as the fixed backend direction.
 2. Freeze schema for all modules and write migration files.
 3. Complete authentication/profile/admin role governance end-to-end.
 4. Build clubs and follow subsystem.

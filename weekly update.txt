@@ -1,236 +1,147 @@
-# 🧩 CSE Club Hub — Full Trello TODO List (Project-Wide)
-
----
-
-## 🟢 WEEK 1 — Setup & Authentication
-
-* Initialize Flutter Project
-  → Setup clean architecture, folders, dependencies
-
-* Configure Supabase Backend
-  → Setup auth, database, environment variables
-
-* Build Authentication Screens
-  → Login, Signup, Splash UI
-
-* Implement Auth Logic
-  → Signup, login, logout, session persistence
-
-* University Email Validation
-  → Restrict to university domain
-
-* Create Profiles Table + Trigger
-  → Auto-create user profile on signup
-
-* Setup Role System (Student Default)
-  → Role stored securely, no client override
-
-* Setup Navigation Flow
-  → Auth-based routing (login → home)
-
----
-
-## 🟢 WEEK 2 — Profiles & Clubs
-
-* Profile Setup Screen
-  → Collect name, ID, batch, section, avatar
-
-* Profile Dashboard (ALL USERS) ⭐
-  → View + edit profile, stats, logout
-
-* Avatar Upload System
-  → Upload and store user images
-
-* Build Clubs List Screen
-  → Show all clubs with basic info
-
-* Club Details Page
-  → Show club info, bio, executives
-
-* Follow/Unfollow System
-  → User can follow clubs
-
----
-
-## 🟢 WEEK 3 — Post System
-
-* Create Post (Executive Only)
-  → Text + image post creation
-
-* Post Storage & Retrieval
-  → Save posts in database
-
-* Build Feed UI
-  → Display posts in list
-
-* Image Upload for Posts
-  → Store and render images
-
----
-
-## 🟢 WEEK 4 — Feed & Interactions
-
-* Personalized Feed
-  → Show posts from followed clubs
-
-* Global Feed
-  → Show all club posts
-
-* Reaction System
-  → Like / Fire / Clap
-
-* Comment System
-  → Add and display comments
-
-* Pin Post Feature
-  → Executive can pin one post
-
----
-
-## 🟢 WEEK 5 — Events Module
-
-* Create Event (Executive)
-  → Title, description, date, venue
-
-* Events List Screen
-  → Show upcoming + past events
-
-* Event Details Screen
-  → Full event info
-
-* RSVP System
-  → Going / Interested
-
-* Event Edit/Delete
-  → Executive control
-
----
-
-## 🟢 WEEK 6 — Notifications
-
-* Setup Push Notification System
-  → Integrate push service
-
-* Trigger Notifications
-  → On post, event, comment
-
-* Notification Center Screen
-  → Show all notifications
-
-* Read/Unread System
-  → Mark notifications
-
-* 24-Hour Reminder System
-  → Event reminder before start
-
----
-
-## 🟢 WEEK 7 — Admin & Search
-
-* Admin Dashboard ⭐
-  → Overview of system stats
-
-* User Management
-  → Promote/revoke executive roles
-
-* Content Moderation
-  → Delete posts/events
-
-* Event Management (Admin)
-  → Full control over events
-
-* Search Screen ⭐
-  → Search posts, events, clubs, users
-
-* Real-Time Search
-  → Live results while typing
-
----
-
-## 🟢 WEEK 7 — Executive Dashboard ⭐ (CRITICAL)
-
-* Build Executive Dashboard
-  → Central control panel for executives
-
-* Manage Posts
-  → View, edit, delete, pin posts
-
-* Manage Events
-  → Create, edit, cancel events
-
-* Manage Club Profile
-  → Update club info
-
-* Quick Actions Panel
-  → Create post / event quickly
-
----
-
-## 🟢 WEEK 8 — Polish & Release
-
-* UI/UX Refinement
-  → Improve spacing, consistency
-
-* Dark Mode Support
-  → Full dark theme
-
-* Error & Empty States
-  → Handle all edge cases
-
-* Performance Optimization
-  → Fast loading, smooth UI
-
-* Security Hardening ⭐
-  → Enforce RLS, role protection
-
-* Bug Fixing
-  → Fix all issues
-
-* Build APK
-  → Prepare for submission
-
----
-
-## 🔐 SECURITY TASKS (GLOBAL)
-
-* Enforce Role-Based Access in DB
-  → RLS policies for all actions
-
-* Prevent Role Manipulation
-  → No client-side role assignment
-
-* Validate University Email
-  → Secure signup
-
-* Protect Admin Actions
-  → Only admin can access
-
-* Audit Logs
-  → Track admin actions
-
----
-
-## 🧱 DATABASE TASKS
-
-* Create Profiles Table
-* Create Clubs Table
-* Create Posts Table
-* Create Comments Table
-* Create Events Table
-* Create RSVP Table
-* Create Notifications Table
-* Create Admin Logs Table
-
----
-
-## ✅ FINAL GOAL (DONE CRITERIA)
-
-* Auth system fully working
-* Profile + club system working
-* Feed + interaction complete
-* Events + RSVP complete
-* Notifications working
-* Admin panel functional
-* Executive dashboard functional
-* Secure role-based system
-* App ready for beta release
+CSE Club Hub - Weekly Engineering Update
+Reporting Date: April 21, 2026
+Project Phase: Core Platform Stabilization and Feature Expansion
+
+==================================================
+Executive Summary
+==================================================
+This cycle focused on platform hardening, profile reliability, navigation consistency,
+and production-oriented feature rollout across Home, Feed, Events, Search, and Admin.
+Code quality gates passed with clean analyzer output.
+
+Overall status:
+- Build health: Stable
+- Analyzer status: No issues found
+- Backend integration: Supabase-first architecture active
+- Release readiness: Progressing toward beta hardening
+
+==================================================
+Week-by-Week Status (Professional Tracking)
+==================================================
+
+WEEK 1 - Setup and Authentication
+Status: Completed
+Commentary:
+- Clean project structure and dependency baseline established.
+- Supabase authentication and session lifecycle integrated.
+- Login, signup, and auth-gated routing are operational.
+- Profiles table trigger flow active for post-signup user initialization.
+
+WEEK 2 - Profiles and Clubs
+Status: Completed with reliability improvements
+Commentary:
+- Profile module implemented with edit/save flow and avatar upload support.
+- Clubs listing and follow/unfollow behavior integrated.
+- Personalized feed dependency on follow-state established.
+- Profile loading resilience improved to avoid total page failure when optional
+  stats queries fail.
+
+WEEK 3 - Post System
+Status: In Progress (functional base complete)
+Commentary:
+- Post creation structure and storage pipeline in place.
+- Feed retrieval and rendering workflows are active.
+- Media support path established for post visuals.
+- Remaining work: finalize full authoring UX and moderation guardrails.
+
+WEEK 4 - Feed and Interactions
+Status: In Progress
+Commentary:
+- Global and personalized feed logic introduced.
+- Reaction and engagement scaffolding implemented.
+- Home feed visualization modernized with reusable card widgets.
+- Remaining work: finalize comment interaction depth and pin constraints.
+
+WEEK 5 - Events Module
+Status: In Progress
+Commentary:
+- Events flow and RSVP service logic introduced.
+- Calendar route and event visualization integrated.
+- Upcoming events section connected with live query stream patterns.
+- Remaining work: complete end-to-end event detail and executive edit lifecycle.
+
+WEEK 6 - Notifications
+Status: In Progress
+Commentary:
+- Notification screen and UX placeholders stabilized.
+- Reminder logic foundations prepared in migration layer.
+- Remaining work: finalize push delivery mechanism and read/unread sync.
+
+WEEK 7 - Admin and Search
+Status: In Progress
+Commentary:
+- Admin panel route and role-gated access integrated.
+- Search module implemented with debounce behavior and segmented results.
+- Remaining work: expand admin analytics depth and moderation workflows.
+
+WEEK 7 - Executive Dashboard
+Status: In Progress
+Commentary:
+- Executive actions for event creation and management are partially integrated.
+- Remaining work: complete post lifecycle controls and club profile governance.
+
+WEEK 8 - Polish and Release
+Status: Planned
+Commentary:
+- Final phase reserved for QA hardening, UI consistency, and performance tuning.
+- Security validation and regression checks remain release blockers.
+
+==================================================
+Security and Governance Update
+==================================================
+Status: In Progress
+- Role-based restrictions are enforced in core pathways.
+- Admin-only and executive-only capability boundaries are present.
+- Migration strategy includes policy alignment and safer privileged flows.
+- Remaining work: add auditable admin action logging and complete final RLS review.
+
+==================================================
+Database and Migration Update
+==================================================
+Status: Active
+- Profiles, posts, events, RSVP, and policy-related migrations expanded.
+- Additional migration coverage added for role requests, feed mode behavior,
+  event/RSVP logic, and profile/search support fields.
+- Remaining work: run final migration verification matrix in staging.
+
+==================================================
+UI/UX and Interaction Notes
+==================================================
+Status: Improved
+- Home dashboard upgraded with animated, rotating, live highlight card.
+- Highlight card now supports route-based tap navigation.
+- Bottom navigation consistency applied across major feature screens.
+- Profile layout and stats card overflow behavior stabilized.
+
+==================================================
+Risk Register (Current)
+==================================================
+1) Schema drift risk between local assumptions and deployed Supabase tables
+   Mitigation: defensive query handling + migration verification checklist.
+
+2) Partial feature completion in notifications and executive workflows
+   Mitigation: targeted completion sprint before beta lock.
+
+3) Role and policy complexity growth with expanded admin features
+   Mitigation: policy naming normalization and focused RLS review pass.
+
+==================================================
+Next Sprint Priorities
+==================================================
+1) Complete notification delivery/read-state architecture.
+2) Finalize executive dashboard controls (post/event/club operations).
+3) Extend admin moderation and analytics breadth.
+4) Execute staging migration validation and regression QA.
+5) Begin release checklist execution for beta milestone.
+
+==================================================
+Release Readiness Snapshot
+==================================================
+- Authentication: Ready
+- Profile and Clubs: Ready with defensive reliability patch
+- Feed Core: Functional, expanding interaction depth
+- Events and RSVP: Functional base, feature-complete pass pending
+- Search: Functional
+- Admin: Functional base with role gate
+- Notifications: Partial
+- Final Recommendation: Continue focused hardening before beta release

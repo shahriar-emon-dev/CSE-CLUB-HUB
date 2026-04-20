@@ -10,15 +10,16 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/profile_setup_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
-import '../../features/home/presentation/screens/admin_panel_screen.dart';
+import '../../features/admin/admin_screen.dart';
+import '../../features/events/calendar_screen.dart';
 import '../../features/home/presentation/screens/club_profile_screen.dart';
 import '../../features/home/presentation/screens/clubs_screen.dart';
 import '../../features/home/presentation/screens/events_screen.dart';
 import '../../features/home/presentation/screens/executive_dashboard_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/home/presentation/screens/notifications_screen.dart';
-import '../../features/home/presentation/screens/profile_dashboard_screen.dart';
-import '../../features/home/presentation/screens/search_screen.dart';
+import '../../features/profile/profile_screen.dart';
+import '../../features/search/search_screen.dart';
 import '../constants/app_routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -66,12 +67,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EventsScreen(),
       ),
       GoRoute(
+        path: AppRoutes.calendar,
+        builder: (context, state) => const CalendarScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.notifications,
         builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: AppRoutes.profileDashboard,
-        builder: (context, state) => const ProfileDashboardScreen(),
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: AppRoutes.executiveDashboard,
@@ -79,7 +84,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.adminPanel,
-        builder: (context, state) => const AdminPanelScreen(),
+        builder: (context, state) => const AdminScreen(),
       ),
     ],
     redirect: routerNotifier.redirect,
