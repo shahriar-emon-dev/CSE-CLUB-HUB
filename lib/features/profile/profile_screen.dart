@@ -176,25 +176,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      await _client.from('profiles').upsert({
-        'id': user.id,
-        'email': _displayEmail,
+      await _ensureProfileRow(user);
+
+      final payload = {
+        'email': _displayEmail.trim().isEmpty ? (user.email ?? '') : _displayEmail.trim(),
         'full_name': _nameController.text.trim(),
         'bio': _bioController.text.trim(),
         'student_id': _studentIdController.text.trim(),
         'batch': _batchController.text.trim(),
         'section': _sectionController.text.trim(),
-      });
+      };
+
+      await _client.from('profiles').update(payload).eq('id', user.id);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully.')),
       );
       await _loadProfileData();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to save profile.';
+        _error = _mapProfileSaveError(e);
       });
     } finally {
       if (mounted) {
@@ -276,9 +279,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       final publicUrl = _client.storage.from(_avatarsBucket).getPublicUrl(objectPath);
 
-      await _client
-          .from('profiles')
-          .upsert({'id': user.id, 'email': _displayEmail, 'avatar_url': publicUrl});
+      await _ensureProfileRow(user);
+      await _client.from('profiles').update({
+        'email': _displayEmail.trim().isEmpty ? (user.email ?? '') : _displayEmail.trim(),
+        'avatar_url': publicUrl,
+      }).eq('id', user.id);
 
       if (!mounted) return;
       setState(() {
@@ -296,6 +301,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         });
       }
     }
+  }
+
+  Future<void> _ensureProfileRow(User user) async {
+    try {
+      await _client.from('profiles').insert({
+        'id': user.id,
+        'email': (user.email ?? _displayEmail).trim(),
+        'role': 'student',
+        'role_request': false,
+      });
+    } catch (e) {
+      if (e is PostgrestException) {
+        final message = e.message.toLowerCase();
+        final isAlreadyExists =
+            e.code == '23505' || message.contains('duplicate key') || message.contains('already exists');
+        if (isAlreadyExists) {
+          return;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  String _mapProfileSaveError(Object e) {
+    if (e is PostgrestException) {
+      if (e.code == '42501') {
+        return 'Failed to save profile due to database permission policy. Apply latest migration and try again.';
+      }
+      if (e.code == '23505') {
+        return 'This email is already used by another profile.';
+      }
+      if (e.message.isNotEmpty) {
+        return 'Failed to save profile: ${e.message}';
+      }
+    }
+    return 'Failed to save profile.';
   }
 
   Future<void> _showEditProfileSheet() async {
