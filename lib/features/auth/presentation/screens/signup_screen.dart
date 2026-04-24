@@ -7,7 +7,6 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/auth_header.dart';
 import '../../../../shared/widgets/password_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
-import '../../../../shared/widgets/role_selector.dart';
 import '../providers/auth_providers.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -22,7 +21,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _requestExecutiveAccess = false;
 
   @override
   void dispose() {
@@ -51,7 +49,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     await ref.read(authNotifierProvider.notifier).signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          requestExecutiveAccess: _requestExecutiveAccess,
         );
   }
 
@@ -105,11 +102,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         validator: _confirmPasswordValidator,
                       ),
                       const SizedBox(height: 20),
-                      RoleSelector(
-                        requestExecutiveAccess: _requestExecutiveAccess,
-                        onChanged: (value) {
-                          setState(() => _requestExecutiveAccess = value);
-                        },
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.orange.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: const Text(
+                          'All new accounts start as Student. Executive access is assigned only by an admin after review.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       if (authState.errorMessage != null)

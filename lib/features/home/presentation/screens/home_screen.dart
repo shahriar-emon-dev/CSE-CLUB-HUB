@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
@@ -566,9 +567,13 @@ Future<void> _showCreatePostComposer(
   BuildContext context, {
   bool openImageHelp = false,
 }) async {
+  final client = Supabase.instance.client;
+  final imagePicker = ImagePicker();
   final textController = TextEditingController();
   final imageController = TextEditingController();
   final previewUrls = <String>[];
+  final pickedImages = <XFile>[];
+  bool isSubmitting = false;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -602,7 +607,7 @@ Future<void> _showCreatePostComposer(
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Compose your club update with text and optional image URLs.',
+                    'Compose your club update with text and optional images.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
@@ -641,6 +646,27 @@ Future<void> _showCreatePostComposer(
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final images = await imagePicker.pickMultiImage(
+                              imageQuality: 85,
+                              maxWidth: 1400,
+                            );
+                            if (images.isEmpty) return;
+                            setModalState(() {
+                              pickedImages.addAll(images);
+                            });
+                          },
+                    icon: const Icon(Icons.upload_file_outlined),
+                    label: Text(
+                      pickedImages.isEmpty
+                          ? 'Upload photos'
+                          : 'Uploaded ${pickedImages.length} photo(s)',
+                    ),
+                  ),
                   if (previewUrls.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     SizedBox(
@@ -668,23 +694,129 @@ Future<void> _showCreatePostComposer(
                       ),
                     ),
                   ],
+                  if (pickedImages.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 60,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: pickedImages.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceSoft,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Image ${index + 1}',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Post draft saved locally. Submit integration can be connected to the posts API.'),
-                          ),
-                        );
-                      },
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final content = textController.text.trim();
+                              if (content.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Write something before posting.')),
+                                );
+                                return;
+                              }
+
+                              final user = client.auth.currentUser;
+                              if (user == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Session expired. Please login again.')),
+                                );
+                                return;
+                              }
+
+                              setModalState(() => isSubmitting = true);
+
+                              try {
+                                final insertedPost = await client
+                                    .from('posts')
+                                    .insert({
+                                      'author_id': user.id,
+                                      'content': content,
+                                    })
+                                    .select('id')
+                                    .single();
+
+                                final postId = insertedPost['id'].toString();
+                                final mediaUrls = <String>[];
+
+                                for (final url in previewUrls) {
+                                  final trimmed = url.trim();
+                                  if (trimmed.isNotEmpty) {
+                                    mediaUrls.add(trimmed);
+                                  }
+                                }
+
+                                for (var i = 0; i < pickedImages.length; i++) {
+                                  final image = pickedImages[i];
+                                  final bytes = await image.readAsBytes();
+                                  final extension = _detectImageExtension(image.path);
+                                  final objectPath = '${user.id}/$postId/${DateTime.now().millisecondsSinceEpoch}_$i.$extension';
+                                  final contentType = _contentTypeForExtension(extension);
+
+                                  await client.storage.from('post-media').uploadBinary(
+                                        objectPath,
+                                        bytes,
+                                        fileOptions: FileOptions(
+                                          upsert: false,
+                                          contentType: contentType,
+                                        ),
+                                      );
+
+                                  final publicUrl = client.storage.from('post-media').getPublicUrl(objectPath);
+                                  mediaUrls.add(publicUrl);
+                                }
+
+                                if (mediaUrls.isNotEmpty) {
+                                  final rows = mediaUrls
+                                      .map((url) => {
+                                            'post_id': postId,
+                                            'media_url': url,
+                                            'media_type': 'image',
+                                          })
+                                      .toList();
+
+                                  await client.from('post_media').insert(rows);
+                                }
+
+                                if (!context.mounted) return;
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Post published successfully.')),
+                                );
+                              } catch (error) {
+                                if (!context.mounted) return;
+                                setModalState(() => isSubmitting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to publish post: $error')),
+                                );
+                              }
+                            },
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.cta,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Post'),
+                      child: Text(isSubmitting ? 'Posting...' : 'Post'),
                     ),
                   ),
                 ],
@@ -695,5 +827,26 @@ Future<void> _showCreatePostComposer(
       );
     },
   );
+}
+
+String _detectImageExtension(String path) {
+  final normalized = path.toLowerCase();
+  if (normalized.endsWith('.png')) return 'png';
+  if (normalized.endsWith('.webp')) return 'webp';
+  if (normalized.endsWith('.gif')) return 'gif';
+  return 'jpg';
+}
+
+String _contentTypeForExtension(String extension) {
+  switch (extension) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return 'image/jpeg';
+  }
 }
 

@@ -62,12 +62,10 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> signUpWithEmail({
     required String email,
     required String password,
-    required bool requestExecutiveAccess,
   }) {
     return _service.signUpWithEmail(
       email: email,
       password: password,
-      requestExecutiveAccess: requestExecutiveAccess,
     );
   }
 }

@@ -57,7 +57,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signUp({
     required String email,
     required String password,
-    required bool requestExecutiveAccess,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -65,7 +64,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _repository.signUpWithEmail(
         email: email,
         password: password,
-        requestExecutiveAccess: requestExecutiveAccess,
       );
       state = state.copyWith(isLoading: false);
     } on AppException catch (error) {

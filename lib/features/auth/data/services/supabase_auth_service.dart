@@ -74,7 +74,6 @@ class SupabaseAuthService {
   Future<void> signUpWithEmail({
     required String email,
     required String password,
-    required bool requestExecutiveAccess,
   }) async {
     try {
       final response = await _client.auth.signUp(
@@ -82,21 +81,9 @@ class SupabaseAuthService {
         password: password,
       );
 
-      final user = response.user;
-      if (user != null) {
-        final profile = <String, dynamic>{
-          'id': user.id,
-          'email': email,
-          'role': 'student',
-          'role_request': false,
-        };
-
-        await _client.from('profiles').upsert(profile);
-
-        if (requestExecutiveAccess) {
-          await this.requestExecutiveAccess();
-        }
-      }
+      // The `handle_new_user` trigger creates the profile row automatically.
+      // New accounts always start as students; executive access is granted later by admin.
+      if (response.user == null) return;
     } on AuthException catch (error) {
       throw AppException(error.message);
     } on PostgrestException catch (error) {
