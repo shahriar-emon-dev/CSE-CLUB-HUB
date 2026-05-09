@@ -18,19 +18,25 @@ class MainBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final navColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
     return SafeArea(
       top: false,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: navColor,
           border: Border(
             top: BorderSide(
-              color: Colors.black.withValues(alpha: 0.06),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.06),
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.08),
               blurRadius: 12,
               offset: const Offset(0, -2),
             ),

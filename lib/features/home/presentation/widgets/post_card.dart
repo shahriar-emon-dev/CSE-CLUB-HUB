@@ -21,6 +21,7 @@ class PostCard extends StatelessWidget {
     required this.applauseCount,
     required this.commentCount,
     this.clubLogoUrl,
+    this.authorAvatarUrl,
     this.imageUrls = const [],
     this.isPinned = false,
     this.onLike,
@@ -39,6 +40,7 @@ class PostCard extends StatelessWidget {
   final int applauseCount;
   final int commentCount;
   final String? clubLogoUrl;
+  final String? authorAvatarUrl;
   final List<String> imageUrls;
   final bool isPinned;
   final VoidCallback? onLike;
@@ -94,8 +96,10 @@ class PostCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AvatarWidget(
-                      fallbackLabel: clubName.characters.first.toUpperCase(),
-                      imageUrl: clubLogoUrl,
+                      fallbackLabel: authorName.isNotEmpty
+                          ? authorName.characters.first.toUpperCase()
+                          : '?',
+                      imageUrl: authorAvatarUrl ?? clubLogoUrl,
                     ),
                     const SizedBox(width: 12),
                     Expanded(

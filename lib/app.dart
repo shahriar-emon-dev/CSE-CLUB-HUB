@@ -14,7 +14,9 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'CSE Club Hub',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.system,
       theme: ThemeData(
+        brightness: Brightness.light,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.cta,
           primary: AppColors.cta,
@@ -45,7 +47,41 @@ class App extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.cta,
+          brightness: Brightness.dark,
+          primary: AppColors.cta,
+          surface: AppColors.darkBackground,
+        ),
+        scaffoldBackgroundColor: AppColors.darkBackground,
+        textTheme: Theme.of(context).textTheme.apply(
+              bodyColor: AppColors.darkTextPrimary,
+              displayColor: AppColors.darkTextPrimary,
+            ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.darkSurface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        cardTheme: CardThemeData(
+          color: AppColors.darkSurface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0x22FFFFFF)),
+          ),
+        ),
+        useMaterial3: true,
+      ),
       routerConfig: router,
     );
   }
 }
+

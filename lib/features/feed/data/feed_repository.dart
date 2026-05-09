@@ -48,6 +48,7 @@ class FeedRepository {
           'id': item['author_id'],
           'name': item['author_name'],
           'role': item['author_role'],
+          'avatar_url': item['author_avatar_url'],
         },
         'media': media,
         'reactions_count': {

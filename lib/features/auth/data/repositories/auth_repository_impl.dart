@@ -26,12 +26,14 @@ class AuthRepositoryImpl implements AuthRepository {
     required String studentId,
     required String batch,
     required String section,
+    required String department,
   }) {
     return _service.updateMyProfile(
       fullName: fullName,
       studentId: studentId,
       batch: batch,
       section: section,
+      department: department,
     );
   }
 

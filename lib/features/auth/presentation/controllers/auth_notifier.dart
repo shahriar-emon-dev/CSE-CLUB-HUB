@@ -81,6 +81,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String studentId,
     required String batch,
     required String section,
+    required String department,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
 
@@ -90,6 +91,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         studentId: studentId,
         batch: batch,
         section: section,
+        department: department,
       );
 
       final profile = await _repository.fetchMyProfile();

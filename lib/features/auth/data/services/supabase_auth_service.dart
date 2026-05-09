@@ -33,7 +33,7 @@ class SupabaseAuthService {
     try {
       final data = await _client
           .from('profiles')
-          .select('id, email, role, role_request, full_name, student_id, batch, section, created_at')
+          .select('id, email, role, role_request, full_name, student_id, batch, section, department, avatar_url, created_at')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -51,6 +51,7 @@ class SupabaseAuthService {
     required String studentId,
     required String batch,
     required String section,
+    required String department,
   }) async {
     final user = currentUser;
     if (user == null) {
@@ -58,12 +59,16 @@ class SupabaseAuthService {
     }
 
     try {
-      await _client.from('profiles').update({
-        'full_name': fullName,
-        'student_id': studentId,
-        'batch': batch,
-        'section': section,
-      }).eq('id', user.id);
+      await _client.rpc(
+        'save_my_profile',
+        params: {
+          'full_name': fullName,
+          'student_id': studentId,
+          'batch': batch,
+          'section': section,
+          'department': department,
+        },
+      );
     } on PostgrestException catch (error) {
       throw AppException(_mapPostgrestError(error));
     } catch (_) {

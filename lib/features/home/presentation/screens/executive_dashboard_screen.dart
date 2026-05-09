@@ -336,6 +336,7 @@ Future<void> _showCreateEventSheet(BuildContext context) async {
                   'event_datetime': selectedDateTime!.toUtc().toIso8601String(),
                   'venue': venue,
                   'club_id': selectedClubId,
+                  'created_by': client.auth.currentUser!.id,
                 });
 
                 if (!sheetContext.mounted) return;
@@ -402,7 +403,7 @@ Future<void> _showCreateEventSheet(BuildContext context) async {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      initialValue: selectedClubId,
+                      value: selectedClubId,
                       decoration: const InputDecoration(labelText: 'Club'),
                       items: clubs
                           .map(

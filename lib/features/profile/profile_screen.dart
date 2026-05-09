@@ -37,6 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _error;
 
   String _displayEmail = '';
+  String _department = 'CSE';
   String? _avatarUrl;
   String _joinedLabel = 'Joined recently';
   int _postsCount = 0;
@@ -64,14 +65,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       return await _client
           .from('profiles')
-          .select('id, email, full_name, bio, student_id, batch, section, avatar_url, created_at')
+          .select('id, email, full_name, bio, student_id, batch, section, department, avatar_url, created_at')
           .eq('id', userId)
           .maybeSingle();
     } catch (_) {
       try {
         return await _client
             .from('profiles')
-            .select('user_id, email, full_name, bio, student_id, batch, section, avatar_url, created_at')
+            .select('user_id, email, full_name, bio, student_id, batch, section, department, avatar_url, created_at')
             .eq('user_id', userId)
             .maybeSingle();
       } catch (_) {
@@ -145,6 +146,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _studentIdController.text = (profile?['student_id']?.toString() ?? '').trim();
     _batchController.text = (profile?['batch']?.toString() ?? '').trim();
     _sectionController.text = (profile?['section']?.toString() ?? '').trim();
+    _department = (profile?['department']?.toString().trim().isNotEmpty ?? false)
+      ? profile!['department'].toString().trim()
+      : 'CSE';
 
     final createdAtRaw = profile?['created_at']?.toString();
     final createdAt = createdAtRaw == null ? null : DateTime.tryParse(createdAtRaw);
@@ -176,18 +180,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      await _ensureProfileRow(user);
-
-      final payload = {
-        'email': _displayEmail.trim().isEmpty ? (user.email ?? '') : _displayEmail.trim(),
-        'full_name': _nameController.text.trim(),
-        'bio': _bioController.text.trim(),
-        'student_id': _studentIdController.text.trim(),
-        'batch': _batchController.text.trim(),
-        'section': _sectionController.text.trim(),
-      };
-
-      await _client.from('profiles').update(payload).eq('id', user.id);
+      await _saveProfileRow(avatarUrl: null);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -279,11 +272,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       final publicUrl = _client.storage.from(_avatarsBucket).getPublicUrl(objectPath);
 
-      await _ensureProfileRow(user);
-      await _client.from('profiles').update({
-        'email': _displayEmail.trim().isEmpty ? (user.email ?? '') : _displayEmail.trim(),
-        'avatar_url': publicUrl,
-      }).eq('id', user.id);
+      await _saveProfileRow(avatarUrl: publicUrl);
 
       if (!mounted) return;
       setState(() {
@@ -303,25 +292,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _ensureProfileRow(User user) async {
-    try {
-      await _client.from('profiles').insert({
-        'id': user.id,
-        'email': (user.email ?? _displayEmail).trim(),
-        'role': 'student',
-        'role_request': false,
-      });
-    } catch (e) {
-      if (e is PostgrestException) {
-        final message = e.message.toLowerCase();
-        final isAlreadyExists =
-            e.code == '23505' || message.contains('duplicate key') || message.contains('already exists');
-        if (isAlreadyExists) {
-          return;
-        }
-      }
-      rethrow;
+  Future<void> _saveProfileRow({String? avatarUrl}) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw const PostgrestException(message: 'No active session found. Please login again.');
     }
+
+    await _client.rpc(
+      'save_my_profile',
+      params: {
+        'full_name': _nameController.text.trim(),
+        'student_id': _studentIdController.text.trim(),
+        'batch': _batchController.text.trim(),
+        'section': _sectionController.text.trim(),
+        'department': _department,
+        'bio': _bioController.text.trim(),
+        'avatar_url': avatarUrl,
+      },
+    );
   }
 
   String _mapProfileSaveError(Object e) {

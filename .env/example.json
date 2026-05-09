@@ -1,4 +1,4 @@
 {
-  "SUPABASE_URL": "https://your-project-ref.supabase.co",
-  "SUPABASE_ANON_KEY": "sb_publishable_UOKzCkOzKMHruHX6JlYh8g_ugviSW25"
+  "SUPABASE_URL": "https://YOUR_PROJECT_ID.supabase.co",
+  "SUPABASE_ANON_KEY": "YOUR_ANON_KEY_HERE"
 }

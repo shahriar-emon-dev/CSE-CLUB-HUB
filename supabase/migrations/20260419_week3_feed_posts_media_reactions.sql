@@ -379,6 +379,7 @@ select
   p.author_id,
   coalesce(pr.full_name, pr.email, 'Unknown') as author_name,
   coalesce(pr.role, 'student') as author_role,
+  pr.avatar_url as author_avatar_url,
   coalesce(
     (
       select json_agg(pm.media_url order by pm.created_at)
@@ -439,6 +440,7 @@ returns table (
   author_id uuid,
   author_name text,
   author_role text,
+  author_avatar_url text,
   media_urls json,
   like_count int,
   fire_count int,
@@ -460,6 +462,7 @@ as $$
     f.author_id,
     f.author_name,
     f.author_role,
+    f.author_avatar_url,
     f.media_urls,
     f.like_count,
     f.fire_count,

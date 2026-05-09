@@ -167,6 +167,7 @@ class _LiveHomeFeedSectionState extends State<LiveHomeFeedSection> {
                 clubName: (row['club']?['name']?.toString() ?? 'Club'),
                 authorName: (row['author']?['name']?.toString() ?? 'Unknown'),
                 authorRole: (row['author']?['role']?.toString() ?? 'student'),
+                authorAvatarUrl: row['author']?['avatar_url']?.toString(),
                 content: row['content']?.toString() ?? '',
                 timestamp: _formatTimestamp(row['created_at']?.toString()),
                 likeCount: ((row['reactions_count']?['like']) as num?)?.toInt() ?? 0,

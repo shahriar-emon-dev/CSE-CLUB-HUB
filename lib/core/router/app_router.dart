@@ -113,6 +113,7 @@ class RouterNotifier extends ChangeNotifier {
     final location = state.matchedLocation;
     final isAuthenticated = sessionState.valueOrNull != null;
     final role = authState.role;
+    final needsProfileSetup = authState.needsProfileSetup;
 
     final isAuthRoute =
         location == AppRoutes.login || location == AppRoutes.signup;
@@ -125,10 +126,16 @@ class RouterNotifier extends ChangeNotifier {
       return isAuthRoute ? null : AppRoutes.login;
     }
 
-    if (
-        location == AppRoutes.splash ||
-        isAuthRoute ||
-        location == AppRoutes.profileSetup) {
+    // Authenticated user with incomplete profile → force profile setup
+    if (needsProfileSetup && location != AppRoutes.profileSetup) {
+      return AppRoutes.profileSetup;
+    }
+
+    // Profile is complete — don't allow going back to auth/splash/setup
+    if (!needsProfileSetup &&
+        (location == AppRoutes.splash ||
+            isAuthRoute ||
+            location == AppRoutes.profileSetup)) {
       return AppRoutes.home;
     }
 

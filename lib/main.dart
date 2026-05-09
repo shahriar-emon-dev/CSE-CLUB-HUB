@@ -8,21 +8,31 @@ import 'core/config/env_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Use env-injected values if available, otherwise fall back to defaults.
+  const url = EnvConfig.supabaseUrl;
+  const anonKey = EnvConfig.supabaseAnonKey;
+
+  final effectiveUrl = url.isNotEmpty
+      ? url
+      : 'https://ptlmzzfwbvyohtwfdqlj.supabase.co';
+  final effectiveKey = anonKey.isNotEmpty
+      ? anonKey
+      : 'sb_publishable_UOKzCkOzKMHruHX6JlYh8g_ugviSW25';
+
   try {
-    EnvConfig.validate();
     await Supabase.initialize(
-      url: EnvConfig.supabaseUrl,
-      anonKey: EnvConfig.supabaseAnonKey,
+      url: effectiveUrl,
+      anonKey: effectiveKey,
     );
 
     runApp(const ProviderScope(child: App()));
-  } on FormatException catch (error) {
-    runApp(_MissingConfigApp(message: error.message));
+  } catch (error) {
+    runApp(_ErrorApp(message: error.toString()));
   }
 }
 
-class _MissingConfigApp extends StatelessWidget {
-  const _MissingConfigApp({required this.message});
+class _ErrorApp extends StatelessWidget {
+  const _ErrorApp({required this.message});
 
   final String message;
 
@@ -41,16 +51,11 @@ class _MissingConfigApp extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Supabase configuration missing',
+                    'Startup error',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 12),
-                  Text(message),
-                  const SizedBox(height: 16),
-                  const SelectableText(
-                    'Run with:\n'
-                    'flutter run -d chrome --dart-define-from-file=.env/dev.json',
-                  ),
+                  SelectableText(message),
                 ],
               ),
             ),
@@ -60,3 +65,4 @@ class _MissingConfigApp extends StatelessWidget {
     );
   }
 }
+

@@ -38,6 +38,8 @@ class UserProfile {
     this.studentId,
     this.batch,
     this.section,
+    this.department,
+    this.avatarUrl,
     this.createdAt,
   });
 
@@ -49,6 +51,8 @@ class UserProfile {
   final String? studentId;
   final String? batch;
   final String? section;
+  final String? department;
+  final String? avatarUrl;
   final DateTime? createdAt;
 
   bool get isComplete {
@@ -56,7 +60,8 @@ class UserProfile {
     final hasStudentId = studentId != null && studentId!.trim().isNotEmpty;
     final hasBatch = batch != null && batch!.trim().isNotEmpty;
     final hasSection = section != null && section!.trim().isNotEmpty;
-    return hasName && hasStudentId && hasBatch && hasSection;
+    final hasDepartment = department != null && department!.trim().isNotEmpty;
+    return hasName && hasStudentId && hasBatch && hasSection && hasDepartment;
   }
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
@@ -69,6 +74,8 @@ class UserProfile {
       studentId: map['student_id'] as String?,
       batch: map['batch'] as String?,
       section: map['section'] as String?,
+      department: map['department'] as String?,
+      avatarUrl: map['avatar_url'] as String?,
       createdAt: map['created_at'] == null
           ? null
           : DateTime.tryParse(map['created_at'] as String),

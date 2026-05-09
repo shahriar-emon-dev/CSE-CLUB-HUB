@@ -26,7 +26,6 @@ class RsvpService {
       'upsert_event_rsvp',
       params: {'p_event_id': eventId, 'p_status': 'going'},
     );
-    await _recalculateCounts(eventId);
     return RsvpStatus.going;
   }
 
@@ -36,14 +35,12 @@ class RsvpService {
       'upsert_event_rsvp',
       params: {'p_event_id': eventId, 'p_status': 'interested'},
     );
-    await _recalculateCounts(eventId);
     return RsvpStatus.interested;
   }
 
   Future<RsvpStatus> cancelRsvp(String eventId) async {
     await _ensureEventExists(eventId);
     await _client.rpc('cancel_event_rsvp', params: {'p_event_id': eventId});
-    await _recalculateCounts(eventId);
     return RsvpStatus.none;
   }
 
@@ -83,29 +80,5 @@ class RsvpService {
       throw Exception('Cannot RSVP to a cancelled event.');
     }
   }
-
-  Future<void> _recalculateCounts(String eventId) async {
-    final response = await _client
-        .from('rsvps')
-        .select('status')
-        .eq('event_id', eventId);
-
-    var going = 0;
-    var interested = 0;
-
-    for (final row in response as List) {
-      final map = Map<String, dynamic>.from(row as Map);
-      final status = map['status']?.toString();
-      if (status == 'going') {
-        going += 1;
-      } else if (status == 'interested') {
-        interested += 1;
-      }
-    }
-
-    await _client.from('events').update({
-      'going_count': going,
-      'interested_count': interested,
-    }).eq('id', eventId);
-  }
 }
+

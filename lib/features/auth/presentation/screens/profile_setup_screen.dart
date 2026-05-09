@@ -91,6 +91,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           studentId: _studentIdController.text.trim(),
           batch: _batchController.text.trim(),
           section: _sectionController.text.trim(),
+          department: _department!.trim(),
         );
   }
 

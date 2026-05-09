@@ -43,11 +43,9 @@ class HomeScreen extends ConsumerWidget {
         : user?.email?.split('@').first ?? 'Student';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('CSE Club Hub'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
             onPressed: () => context.push(AppRoutes.search),
@@ -137,9 +135,9 @@ class HomeScreen extends ConsumerWidget {
                               crossAxisSpacing: 12,
                               childAspectRatio: columns == 2 ? 2.1 : 1.7,
                               children: const [
-                                _MiniStat(label: 'Clubs', value: '6'),
-                                _MiniStat(label: 'Events', value: '24'),
-                                _MiniStat(label: 'Posts', value: '128'),
+                                _LiveMiniStat(label: 'Clubs', table: 'clubs', filter: null),
+                                _LiveMiniStat(label: 'Events', table: 'events', filter: 'is_cancelled'),
+                                _LiveMiniStat(label: 'Posts', table: 'posts', filter: 'is_deleted'),
                                 _MovingHighlightCard(),
                               ],
                             );
@@ -197,16 +195,18 @@ class HomeScreen extends ConsumerWidget {
                     subtitle: 'A few recent club updates to keep the home screen lively.',
                   ),
                   const SizedBox(height: 12),
-                  CreatePostCard(
-                    displayName: displayName,
-                    onCreatePressed: () {
-                      _showCreatePostComposer(context);
-                    },
-                    onImagePressed: () {
-                      _showCreatePostComposer(context, openImageHelp: true);
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                  if (role == AppUserRole.executive || role == AppUserRole.admin)
+                    CreatePostCard(
+                      displayName: displayName,
+                      onCreatePressed: () {
+                        _showCreatePostComposer(context);
+                      },
+                      onImagePressed: () {
+                        _showCreatePostComposer(context, openImageHelp: true);
+                      },
+                    ),
+                  if (role == AppUserRole.executive || role == AppUserRole.admin)
+                    const SizedBox(height: 12),
                   const LiveHomeFeedSection(),
                   const SizedBox(height: 16),
                   const SectionHeader(
@@ -214,18 +214,7 @@ class HomeScreen extends ConsumerWidget {
                     subtitle: 'Follow clubs to personalize your feed.',
                   ),
                   const SizedBox(height: 12),
-                  ClubCardWidget(
-                    name: 'Machine Learning Club',
-                    description: 'AI, data science, and deep learning community.',
-                    isFollowing: true,
-                    onTap: _noop,
-                  ),
-                  const SizedBox(height: 12),
-                  ClubCardWidget(
-                    name: 'Cyber Security Club',
-                    description: 'Security, ethical hacking, and cryptography.',
-                    onTap: _noop,
-                  ),
+                  const _LiveClubsList(),
                   const SizedBox(height: 16),
                   const EmptyState(
                     title: 'No more updates right now',
@@ -244,11 +233,48 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value});
+class _LiveMiniStat extends StatefulWidget {
+  const _LiveMiniStat({required this.label, required this.table, required this.filter});
 
   final String label;
-  final String value;
+  final String table;
+  final String? filter; // Column name where false = active (e.g. 'is_deleted', 'is_cancelled')
+
+  @override
+  State<_LiveMiniStat> createState() => _LiveMiniStatState();
+}
+
+class _LiveMiniStatState extends State<_LiveMiniStat> {
+  int _count = 0;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCount();
+  }
+
+  Future<void> _fetchCount() async {
+    try {
+      var query = Supabase.instance.client
+          .from(widget.table)
+          .select('id');
+
+      if (widget.filter != null) {
+        query = query.eq(widget.filter!, false);
+      }
+
+      final response = await query.count(CountOption.exact);
+      if (!mounted) return;
+      setState(() {
+        _count = response.count;
+        _loaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loaded = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -262,17 +288,26 @@ class _MiniStat extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+          _loaded
+              ? Text(
+                  '$_count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              : const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
           const SizedBox(height: 4),
           Text(
-            label,
+            widget.label,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,
@@ -561,7 +596,129 @@ class _MovingHighlightCardState extends State<_MovingHighlightCard> {
   }
 }
 
-void _noop() {}
+// _LiveClubsList: Fetches clubs from the database and displays them with follow/unfollow.
+class _LiveClubsList extends StatefulWidget {
+  const _LiveClubsList();
+
+  @override
+  State<_LiveClubsList> createState() => _LiveClubsListState();
+}
+
+class _LiveClubsListState extends State<_LiveClubsList> {
+  final SupabaseClient _client = Supabase.instance.client;
+  List<Map<String, dynamic>> _clubs = const [];
+  Set<String> _followedClubIds = const {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClubs();
+  }
+
+  Future<void> _loadClubs() async {
+    try {
+      final user = _client.auth.currentUser;
+      final clubsData = await _client
+          .from('clubs')
+          .select('id, name, description')
+          .eq('is_active', true)
+          .order('name')
+          .limit(6);
+
+      Set<String> followedIds = {};
+      if (user != null) {
+        final follows = await _client
+            .from('user_club_follows')
+            .select('club_id')
+            .eq('user_id', user.id);
+        followedIds = (follows as List)
+            .map((row) => (row as Map)['club_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _clubs = List<Map<String, dynamic>>.from(clubsData as List);
+        _followedClubIds = followedIds;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _toggleFollow(String clubId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    final isFollowing = _followedClubIds.contains(clubId);
+    setState(() {
+      if (isFollowing) {
+        _followedClubIds = Set.from(_followedClubIds)..remove(clubId);
+      } else {
+        _followedClubIds = Set.from(_followedClubIds)..add(clubId);
+      }
+    });
+
+    try {
+      if (isFollowing) {
+        await _client
+            .from('user_club_follows')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('club_id', clubId);
+      } else {
+        await _client
+            .from('user_club_follows')
+            .insert({'user_id': user.id, 'club_id': clubId});
+      }
+    } catch (_) {
+      // Revert on failure
+      if (!mounted) return;
+      setState(() {
+        if (isFollowing) {
+          _followedClubIds = Set.from(_followedClubIds)..add(clubId);
+        } else {
+          _followedClubIds = Set.from(_followedClubIds)..remove(clubId);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_clubs.isEmpty) {
+      return const Text(
+        'No clubs available yet.',
+        style: TextStyle(color: AppColors.textSecondary),
+      );
+    }
+
+    return Column(
+      children: _clubs.map((club) {
+        final clubId = club['id']?.toString() ?? '';
+        final isFollowing = _followedClubIds.contains(clubId);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ClubCardWidget(
+            name: club['name']?.toString() ?? 'Club',
+            description: club['description']?.toString() ?? '',
+            isFollowing: isFollowing,
+            onTap: () => context.push(AppRoutes.clubProfile),
+            onFollowToggle: () => _toggleFollow(clubId),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
 
 Future<void> _showCreatePostComposer(
   BuildContext context, {
@@ -574,6 +731,8 @@ Future<void> _showCreatePostComposer(
   final previewUrls = <String>[];
   final pickedImages = <XFile>[];
   bool isSubmitting = false;
+  String? selectedClubId;
+  List<Map<String, dynamic>> clubs = [];
 
   await showModalBottomSheet<void>(
     context: context,
@@ -583,6 +742,16 @@ Future<void> _showCreatePostComposer(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (context) {
+      // Load clubs for the selector
+      client
+          .from('clubs')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name')
+          .then((data) {
+        clubs = List<Map<String, dynamic>>.from(data as List);
+      }).catchError((_) {});
+
       return StatefulBuilder(
         builder: (context, setModalState) {
           return Padding(
@@ -614,6 +783,28 @@ Future<void> _showCreatePostComposer(
                     ),
                   ),
                   const SizedBox(height: 14),
+                  // Club selector
+                  if (clubs.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      value: selectedClubId,
+                      decoration: InputDecoration(
+                        hintText: 'Select a club',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: clubs.map((club) {
+                        return DropdownMenuItem<String>(
+                          value: club['id']?.toString(),
+                          child: Text(club['name']?.toString() ?? 'Club'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setModalState(() => selectedClubId = value);
+                      },
+                    ),
+                  if (clubs.isNotEmpty)
+                    const SizedBox(height: 12),
                   TextField(
                     controller: textController,
                     minLines: 3,
@@ -748,12 +939,17 @@ Future<void> _showCreatePostComposer(
                               setModalState(() => isSubmitting = true);
 
                               try {
+                                final insertData = <String, dynamic>{
+                                  'author_id': user.id,
+                                  'content': content,
+                                };
+                                if (selectedClubId != null && selectedClubId!.isNotEmpty) {
+                                  insertData['club_id'] = selectedClubId;
+                                }
+
                                 final insertedPost = await client
                                     .from('posts')
-                                    .insert({
-                                      'author_id': user.id,
-                                      'content': content,
-                                    })
+                                    .insert(insertData)
                                     .select('id')
                                     .single();
 

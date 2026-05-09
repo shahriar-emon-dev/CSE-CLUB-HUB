@@ -13,6 +13,7 @@ import '../../../../shared/widgets/user_row.dart';
 import '../../../auth/domain/entities/user_profile.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/confirm_action_dialog.dart';
+import '../widgets/avatar_widget.dart';
 import '../widgets/profile_edit_modal.dart';
 
 class ProfileDashboardScreen extends ConsumerWidget {
@@ -43,6 +44,10 @@ class ProfileDashboardScreen extends ConsumerWidget {
     final displaySection = profile?.section?.trim().isNotEmpty == true
         ? profile!.section!.trim()
         : '—';
+    final displayDepartment = profile?.department?.trim().isNotEmpty == true
+      ? profile!.department!.trim()
+      : 'CSE';
+    final displayAvatarUrl = profile?.avatarUrl?.trim().isNotEmpty == true ? profile!.avatarUrl!.trim() : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -87,28 +92,15 @@ class ProfileDashboardScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                width: 72,
-                                height: 72,
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      AppColors.gradientStart,
-                                      AppColors.gradientMiddle,
-                                    ],
-                                  ),
                                   borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(color: Colors.white, width: 3),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    displayName.isNotEmpty
-                                        ? displayName.characters.first.toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
+                                child: AvatarWidget(
+                                  fallbackLabel: displayName.isNotEmpty ? displayName.characters.first.toUpperCase() : '?',
+                                  imageUrl: displayAvatarUrl,
+                                  size: 72,
+                                  backgroundColor: AppColors.cta.withValues(alpha: 0.18),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -141,8 +133,8 @@ class ProfileDashboardScreen extends ConsumerWidget {
                                           label: roleLabel,
                                           icon: Icons.workspace_premium_outlined,
                                         ),
-                                        const RoleBadge(
-                                          label: 'Department: CSE',
+                                        RoleBadge(
+                                          label: 'Department: $displayDepartment',
                                           icon: Icons.school_outlined,
                                         ),
                                       ],
@@ -157,14 +149,14 @@ class ProfileDashboardScreen extends ConsumerWidget {
                             name: displayName,
                             email: displayEmail,
                             roleLabel: roleLabel,
-                            department: 'CSE • Batch $displayBatch • Section $displaySection',
+                            department: '$displayDepartment • Batch $displayBatch • Section $displaySection',
                           ),
                           const SizedBox(height: 16),
                           _IdentityGrid(
                             studentId: displayStudentId,
                             batch: displayBatch,
                             section: displaySection,
-                            department: 'Computer Science and Engineering',
+                            department: displayDepartment,
                           ),
                         ],
                       ),
@@ -226,7 +218,8 @@ class ProfileDashboardScreen extends ConsumerWidget {
                               studentId: displayStudentId,
                               batch: displayBatch,
                               section: displaySection,
-                              department: 'CSE',
+                              department: displayDepartment,
+                              avatarUrl: displayAvatarUrl,
                             );
                           },
                         ),

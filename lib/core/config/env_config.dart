@@ -1,24 +1,21 @@
 class EnvConfig {
   EnvConfig._();
 
-  static const _fallbackSupabaseUrl =
-      'https://ptlmzzfwbvyohtwfdqlj.supabase.co';
-  static const _fallbackSupabaseAnonKey =
-      'sb_publishable_UOKzCkOzKMHruHX6JlYh8g_ugviSW25';
-
+  // Development defaults — override via --dart-define-from-file=.env/dev.json
   static const supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: _fallbackSupabaseUrl,
+    defaultValue: 'https://ptlmzzfwbvyohtwfdqlj.supabase.co',
   );
   static const supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: _fallbackSupabaseAnonKey,
+    defaultValue: 'sb_publishable_UOKzCkOzKMHruHX6JlYh8g_ugviSW25',
   );
 
   static void validate() {
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
       throw const FormatException(
-        'Missing Supabase keys. Provide SUPABASE_URL and SUPABASE_ANON_KEY via --dart-define.',
+        'Missing Supabase keys. Provide SUPABASE_URL and SUPABASE_ANON_KEY via:\n'
+        '  flutter run --dart-define-from-file=.env/dev.json',
       );
     }
   }
