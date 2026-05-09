@@ -31,14 +31,10 @@ class SupabaseAuthService {
     if (user == null) return null;
 
     try {
-      final data = await _client
-          .from('profiles')
-          .select('id, email, role, role_request, full_name, student_id, batch, section, department, avatar_url, created_at')
-          .eq('id', user.id)
-          .maybeSingle();
+      final data = await _client.rpc('get_my_profile');
 
       if (data == null) return null;
-      return UserProfile.fromMap(data);
+      return UserProfile.fromMap(Map<String, dynamic>.from(data as Map));
     } on PostgrestException catch (error) {
       throw AppException(_mapPostgrestError(error));
     } catch (_) {
