@@ -63,21 +63,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<Map<String, dynamic>?> _fetchProfileRow(String userId) async {
     try {
-      return await _client
-          .from('profiles')
-          .select('id, email, full_name, bio, student_id, batch, section, department, avatar_url, created_at')
-          .eq('id', userId)
-          .maybeSingle();
+      final data = await _client.rpc('get_my_profile');
+      if (data == null) return null;
+      return Map<String, dynamic>.from(data as Map);
     } catch (_) {
-      try {
-        return await _client
-            .from('profiles')
-            .select('user_id, email, full_name, bio, student_id, batch, section, department, avatar_url, created_at')
-            .eq('user_id', userId)
-            .maybeSingle();
-      } catch (_) {
-        return null;
-      }
+      return null;
     }
   }
 
@@ -180,13 +170,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      await _saveProfileRow(avatarUrl: null);
+      final savedProfile = await _saveProfileRow(avatarUrl: null);
 
       if (!mounted) return;
+      if (savedProfile != null) {
+        _applyProfileData(savedProfile, user.email);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully.')),
       );
-      await _loadProfileData();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -272,11 +264,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       final publicUrl = _client.storage.from(_avatarsBucket).getPublicUrl(objectPath);
 
-      await _saveProfileRow(avatarUrl: publicUrl);
+      final savedProfile = await _saveProfileRow(avatarUrl: publicUrl);
 
       if (!mounted) return;
       setState(() {
-        _avatarUrl = publicUrl;
+        _avatarUrl = savedProfile?['avatar_url']?.toString() ?? publicUrl;
       });
     } catch (_) {
       if (!mounted) return;
@@ -292,13 +284,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _saveProfileRow({String? avatarUrl}) async {
+  Future<Map<String, dynamic>?> _saveProfileRow({String? avatarUrl}) async {
     final user = _client.auth.currentUser;
     if (user == null) {
       throw const PostgrestException(message: 'No active session found. Please login again.');
     }
 
-    await _client.rpc(
+    final data = await _client.rpc(
       'save_my_profile',
       params: {
         'full_name': _nameController.text.trim(),
@@ -310,6 +302,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'avatar_url': avatarUrl,
       },
     );
+
+    if (data == null) return null;
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  void _applyProfileData(Map<String, dynamic> profile, String? fallbackEmail) {
+    _nameController.text = (profile['full_name']?.toString() ?? '').trim();
+    _bioController.text = (profile['bio']?.toString() ?? '').trim();
+    _studentIdController.text = (profile['student_id']?.toString() ?? '').trim();
+    _batchController.text = (profile['batch']?.toString() ?? '').trim();
+    _sectionController.text = (profile['section']?.toString() ?? '').trim();
+    _department = (profile['department']?.toString().trim().isNotEmpty ?? false)
+      ? profile['department'].toString().trim()
+      : 'CSE';
+    _displayEmail = (profile['email']?.toString().trim().isNotEmpty ?? false)
+      ? profile['email'].toString().trim()
+      : (fallbackEmail ?? 'No email found');
+    _avatarUrl = profile['avatar_url']?.toString();
+
+    final createdAtRaw = profile['created_at']?.toString();
+    final createdAt = createdAtRaw == null ? null : DateTime.tryParse(createdAtRaw);
+    _joinedLabel = createdAt == null
+        ? 'Joined recently'
+        : 'Joined ${createdAt.toLocal().year}-${createdAt.toLocal().month.toString().padLeft(2, '0')}-${createdAt.toLocal().day.toString().padLeft(2, '0')}';
   }
 
   String _mapProfileSaveError(Object e) {

@@ -160,7 +160,9 @@ class ProfileDashboardScreen extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      _initialsFrom(displayName) == '?' ? 'Profile details will appear here' : _joinedLabel,
+                                      _initialsFrom(displayName) == '?'
+                                          ? 'Profile details will appear here'
+                                          : 'CSE student profile',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,
