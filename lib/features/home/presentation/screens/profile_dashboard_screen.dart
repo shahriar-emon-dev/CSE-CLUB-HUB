@@ -19,6 +19,16 @@ import '../widgets/profile_edit_modal.dart';
 class ProfileDashboardScreen extends ConsumerWidget {
   const ProfileDashboardScreen({super.key});
 
+  String _initialsFrom(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts.first.characters.first.toUpperCase();
+    }
+    return '${parts.first.characters.first}${parts.last.characters.first}'.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
@@ -72,14 +82,18 @@ class ProfileDashboardScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Colors.white, Color(0xFFFFFBF5)],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: AppColors.inputBorder),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
+                          blurRadius: 28,
+                          offset: const Offset(0, 14),
                         ),
                       ],
                     ),
@@ -89,19 +103,39 @@ class ProfileDashboardScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(color: Colors.white, width: 3),
-                                ),
-                                child: AvatarWidget(
-                                  fallbackLabel: displayName.isNotEmpty ? displayName.characters.first.toUpperCase() : '?',
-                                  imageUrl: displayAvatarUrl,
-                                  size: 72,
-                                  backgroundColor: AppColors.cta.withValues(alpha: 0.18),
-                                ),
+                              Stack(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: AppColors.cta.withValues(alpha: 0.18), width: 4),
+                                    ),
+                                    child: AvatarWidget(
+                                      fallbackLabel: _initialsFrom(displayName),
+                                      imageUrl: displayAvatarUrl,
+                                      size: 90,
+                                      backgroundColor: AppColors.cta.withValues(alpha: 0.14),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.cta,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.school_outlined,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -122,6 +156,15 @@ class ProfileDashboardScreen extends ConsumerWidget {
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _initialsFrom(displayName) == '?' ? 'Profile details will appear here' : _joinedLabel,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -145,13 +188,13 @@ class ProfileDashboardScreen extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          UserRow(
-                            name: displayName,
-                            email: displayEmail,
-                            roleLabel: roleLabel,
-                            department: '$displayDepartment • Batch $displayBatch • Section $displaySection',
+                          _ProfileOverviewTile(
+                            studentId: displayStudentId,
+                            batch: displayBatch,
+                            section: displaySection,
+                            department: displayDepartment,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
                           _IdentityGrid(
                             studentId: displayStudentId,
                             batch: displayBatch,
@@ -211,8 +254,8 @@ class ProfileDashboardScreen extends ConsumerWidget {
                           label: 'Edit Profile',
                           icon: Icons.edit_outlined,
                           isPrimary: true,
-                          onPressed: () {
-                            showProfileEditModal(
+                          onPressed: () async {
+                            await showProfileEditModal(
                               context,
                               name: displayName,
                               studentId: displayStudentId,
@@ -221,6 +264,8 @@ class ProfileDashboardScreen extends ConsumerWidget {
                               department: displayDepartment,
                               avatarUrl: displayAvatarUrl,
                             );
+
+                            ref.invalidate(authNotifierProvider);
                           },
                         ),
                       ),
@@ -266,6 +311,48 @@ class ProfileDashboardScreen extends ConsumerWidget {
       ),
       bottomNavigationBar: const MainBottomNav(
         activeRoute: AppRoutes.profileDashboard,
+      ),
+    );
+  }
+}
+
+class _ProfileOverviewTile extends StatelessWidget {
+  const _ProfileOverviewTile({
+    required this.studentId,
+    required this.batch,
+    required this.section,
+    required this.department,
+  });
+
+  final String studentId;
+  final String batch;
+  final String section;
+  final String department;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.badge_outlined, color: AppColors.cta, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Student ID $studentId • Batch $batch • Section $section • $department',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
