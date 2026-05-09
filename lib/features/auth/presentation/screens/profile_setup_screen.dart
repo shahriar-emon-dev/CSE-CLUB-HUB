@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/profile_avatar_picker.dart';
@@ -125,7 +127,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    await ref.read(authNotifierProvider.notifier).completeProfile(
+    final didSave = await ref.read(authNotifierProvider.notifier).completeProfile(
       fullName: _fullNameController.text.trim(),
       studentId: _studentIdController.text.trim(),
       batch: _batchController.text.trim(),
@@ -133,6 +135,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       department: _department,
       avatarUrl: _avatarUrl,
     );
+
+    if (!mounted) return;
+    if (didSave) {
+      context.go(AppRoutes.home);
+    }
   }
 
   

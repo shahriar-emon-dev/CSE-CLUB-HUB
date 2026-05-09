@@ -76,7 +76,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> completeProfile({
+  Future<bool> completeProfile({
     required String fullName,
     required String studentId,
     required String batch,
@@ -98,6 +98,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final profile = await _repository.fetchMyProfile();
       state = state.copyWith(isLoading: false, profile: profile, clearError: true);
+      return true;
     } on AppException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
     } catch (_) {
@@ -106,6 +107,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         errorMessage: 'Unable to complete your profile right now.',
       );
     }
+
+    return false;
   }
 
   Future<void> signIn({
