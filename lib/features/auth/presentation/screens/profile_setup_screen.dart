@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -23,8 +25,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _sectionController = TextEditingController();
   final List<String> _departments = const ['CSE', 'EEE', 'BBA', 'English', 'Law'];
 
-  String? _department;
+  // Application is CSE-only: department is fixed
+  final String _department = 'CSE';
+
   String? _avatarSelectionLabel;
+  String? _avatarUrl;
+  bool _isUploadingAvatar = false;
   bool _isFormComplete = false;
 
   @override
@@ -53,11 +59,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   // Purpose: Keep CTA state in sync with required form fields for a better first-time setup UX.
   void _refreshCompletion() {
+    // require avatar and fixed CSE department
     final completed = _fullNameController.text.trim().isNotEmpty &&
-        _studentIdController.text.trim().isNotEmpty &&
-        _batchController.text.trim().isNotEmpty &&
-        _sectionController.text.trim().isNotEmpty &&
-        (_department?.trim().isNotEmpty ?? false);
+      _studentIdController.text.trim().isNotEmpty &&
+      _batchController.text.trim().isNotEmpty &&
+      _sectionController.text.trim().isNotEmpty &&
+      (_avatarUrl?.trim().isNotEmpty ?? false);
 
     if (completed == _isFormComplete) return;
     setState(() => _isFormComplete = completed);
@@ -71,34 +78,65 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   // Purpose: Keeps avatar upload UI ready for storage integration without changing existing profile logic.
   void _onAvatarSelectPressed() {
+    _uploadAvatar();
+  }
+
+  Future<void> _uploadAvatar() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) return;
+
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1200);
+    if (image == null) return;
+
     setState(() {
-      _avatarSelectionLabel = 'avatar_placeholder.png';
+      _isUploadingAvatar = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Avatar upload UI is ready. Connect storage upload in Week 2 backend wiring.'),
-      ),
-    );
+    try {
+      final bytes = await image.readAsBytes();
+      final objectPath = '${user.id}/avatar.jpg';
+      await client.storage.from('avatars').uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+          );
+
+      final publicUrl = client.storage.from('avatars').getPublicUrl(objectPath);
+      if (!mounted) return;
+      setState(() {
+        _avatarUrl = publicUrl;
+        _avatarSelectionLabel = image.name;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avatar upload failed. Check file size and network.')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUploadingAvatar = false;
+      });
+    }
   }
 
   Future<void> _saveProfile() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    await ref.read(authNotifierProvider.notifier).completeProfile(
-          fullName: _fullNameController.text.trim(),
-          studentId: _studentIdController.text.trim(),
-          batch: _batchController.text.trim(),
-          section: _sectionController.text.trim(),
-          department: _department!.trim(),
-        );
+      await ref.read(authNotifierProvider.notifier).completeProfile(
+        fullName: _fullNameController.text.trim(),
+        studentId: _studentIdController.text.trim(),
+        batch: _batchController.text.trim(),
+        section: _sectionController.text.trim(),
+        department: _department,
+        avatarUrl: _avatarUrl,
+      );
   }
 
-  String? _requiredDepartment(String? value) {
-    if ((value ?? '').trim().isEmpty) return 'Department is required';
-    return null;
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -192,15 +230,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           validator: (v) => _requiredField(v, 'Section'),
                         ),
                         const SizedBox(height: 16),
-                        DropdownField(
-                          label: 'Department',
-                          value: _department,
-                          items: _departments,
-                          validator: _requiredDepartment,
-                          onChanged: (value) {
-                            setState(() => _department = value);
-                            _refreshCompletion();
-                          },
+                        // Application restricted to CSE only - show as read-only
+                        TextFormField(
+                          initialValue: _department,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Department',
+                          ),
                         ),
                         const SizedBox(height: 24),
                         if (authState.errorMessage != null)

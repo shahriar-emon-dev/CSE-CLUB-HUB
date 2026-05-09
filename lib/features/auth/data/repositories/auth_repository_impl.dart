@@ -27,6 +27,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String batch,
     required String section,
     required String department,
+    String? avatarUrl,
   }) {
     return _service.updateMyProfile(
       fullName: fullName,
@@ -34,6 +35,7 @@ class AuthRepositoryImpl implements AuthRepository {
       batch: batch,
       section: section,
       department: department,
+      avatarUrl: avatarUrl,
     );
   }
 

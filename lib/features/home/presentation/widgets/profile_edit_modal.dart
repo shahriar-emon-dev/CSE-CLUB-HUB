@@ -288,15 +288,11 @@ class _ProfileEditModalState extends State<_ProfileEditModal> {
                     validator: (value) => _required(value, 'Section'),
                   ),
                   const SizedBox(height: 12),
-                  DropdownField(
-                    label: 'Department',
-                    value: _department,
-                    items: _departments,
-                    validator: (value) => _required(value, 'Department'),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _department = value);
-                    },
+                  // Department is fixed to CSE for this application
+                  TextFormField(
+                    initialValue: _department,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: 'Department'),
                   ),
                   const SizedBox(height: 20),
                   PrimaryButton(

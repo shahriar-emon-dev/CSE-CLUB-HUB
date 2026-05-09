@@ -15,6 +15,7 @@ abstract class AuthRepository {
     required String batch,
     required String section,
     required String department,
+    String? avatarUrl,
   });
 
   Future<void> signUpWithEmail({

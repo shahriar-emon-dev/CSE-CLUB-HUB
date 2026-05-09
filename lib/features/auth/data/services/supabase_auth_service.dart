@@ -52,6 +52,7 @@ class SupabaseAuthService {
     required String batch,
     required String section,
     required String department,
+    String? avatarUrl,
   }) async {
     final user = currentUser;
     if (user == null) {
@@ -59,16 +60,16 @@ class SupabaseAuthService {
     }
 
     try {
-      await _client.rpc(
-        'save_my_profile',
-        params: {
-          'full_name': fullName,
-          'student_id': studentId,
-          'batch': batch,
-          'section': section,
-          'department': department,
-        },
-      );
+      final params = {
+        'full_name': fullName,
+        'student_id': studentId,
+        'batch': batch,
+        'section': section,
+        'department': department,
+      };
+      if (avatarUrl != null) params['avatar_url'] = avatarUrl;
+
+      await _client.rpc('save_my_profile', params: params);
     } on PostgrestException catch (error) {
       throw AppException(_mapPostgrestError(error));
     } catch (_) {
