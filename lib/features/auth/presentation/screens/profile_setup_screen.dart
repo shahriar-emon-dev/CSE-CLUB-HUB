@@ -57,12 +57,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   // Purpose: Keep CTA state in sync with required form fields for a better first-time setup UX.
   void _refreshCompletion() {
-    // require avatar and fixed CSE department
+    // Require the text fields only; avatar remains optional.
     final completed = _fullNameController.text.trim().isNotEmpty &&
       _studentIdController.text.trim().isNotEmpty &&
       _batchController.text.trim().isNotEmpty &&
       _sectionController.text.trim().isNotEmpty &&
-      (_avatarUrl?.trim().isNotEmpty ?? false);
+      _department.trim().isNotEmpty;
 
     if (completed == _isFormComplete) return;
     setState(() => _isFormComplete = completed);
