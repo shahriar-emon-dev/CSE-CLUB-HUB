@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../shared/widgets/dropdown_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/profile_avatar_picker.dart';
 import '../providers/auth_providers.dart';
@@ -23,7 +22,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _studentIdController = TextEditingController();
   final _batchController = TextEditingController();
   final _sectionController = TextEditingController();
-  final List<String> _departments = const ['CSE', 'EEE', 'BBA', 'English', 'Law'];
 
   // Application is CSE-only: department is fixed
   final String _department = 'CSE';
@@ -109,6 +107,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         _avatarUrl = publicUrl;
         _avatarSelectionLabel = image.name;
       });
+      _refreshCompletion();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,14 +125,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-      await ref.read(authNotifierProvider.notifier).completeProfile(
-        fullName: _fullNameController.text.trim(),
-        studentId: _studentIdController.text.trim(),
-        batch: _batchController.text.trim(),
-        section: _sectionController.text.trim(),
-        department: _department,
-        avatarUrl: _avatarUrl,
-      );
+    await ref.read(authNotifierProvider.notifier).completeProfile(
+      fullName: _fullNameController.text.trim(),
+      studentId: _studentIdController.text.trim(),
+      batch: _batchController.text.trim(),
+      section: _sectionController.text.trim(),
+      department: _department,
+      avatarUrl: _avatarUrl,
+    );
   }
 
   
