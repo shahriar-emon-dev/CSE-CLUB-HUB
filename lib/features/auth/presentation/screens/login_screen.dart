@@ -67,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
                       AppTextField(
-                        label: 'University Email',
+                        label: 'Email',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
@@ -95,6 +95,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: 'Login',
                         isLoading: authState.isLoading,
                         onPressed: _submit,
+                      ),
+                      TextButton(
+                        onPressed: () => context.push(AppRoutes.forgotPassword),
+                        child: const Text('Forgot password?'),
                       ),
                       const SizedBox(height: 16),
                       TextButton(

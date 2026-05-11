@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../feed/data/feed_repository.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../shared/widgets/empty_state.dart';
-import '../../../../shared/widgets/section_header.dart';
 import 'post_card.dart';
 
 // ==========================================
@@ -102,67 +100,76 @@ class _LiveHomeFeedSectionState extends State<LiveHomeFeedSection> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader(
-          title: 'Live Feed',
-          subtitle: 'Global is default until you follow clubs, then you can switch to personalized.',
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
+        // ── Feed Header with Tabs ──
+        Row(
           children: [
-            ChoiceChip(
-              label: const Text('Global'),
-              selected: _selectedMode == _FeedMode.global,
-              onSelected: (_) => _switchMode(_FeedMode.global),
-              selectedColor: AppColors.cta.withValues(alpha: 0.12),
-              labelStyle: TextStyle(
-                color: _selectedMode == _FeedMode.global ? AppColors.cta : AppColors.textSecondary,
-                fontWeight: FontWeight.w700,
+            Text(
+              'Feed',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: textPrimary,
               ),
             ),
-            ChoiceChip(
-              label: const Text('Personalized'),
-              selected: _selectedMode == _FeedMode.personalized,
-              onSelected: _hasFollowedClubs ? (_) => _switchMode(_FeedMode.personalized) : null,
-              selectedColor: AppColors.cta.withValues(alpha: 0.12),
-              labelStyle: TextStyle(
-                color: _selectedMode == _FeedMode.personalized ? AppColors.cta : AppColors.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
+            const Spacer(),
+            _FeedTabChip(
+              label: 'Global',
+              isActive: _selectedMode == _FeedMode.global,
+              onTap: () => _switchMode(_FeedMode.global),
+            ),
+            const SizedBox(width: 6),
+            _FeedTabChip(
+              label: 'For You',
+              isActive: _selectedMode == _FeedMode.personalized,
+              isDisabled: !_hasFollowedClubs,
+              onTap: _hasFollowedClubs
+                  ? () => _switchMode(_FeedMode.personalized)
+                  : null,
             ),
           ],
         ),
         if (!_hasFollowedClubs) ...[
-          const SizedBox(height: 8),
-          const Text(
-            'Follow at least one club to enable personalized feed.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          const SizedBox(height: 6),
+          Text(
+            'Follow clubs to enable personalized feed.',
+            style: TextStyle(color: textSecondary, fontSize: 12),
           ),
         ],
         const SizedBox(height: 12),
         if (_isLoading)
-          const Center(child: CircularProgressIndicator())
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          )
         else if (_error != null)
-          EmptyState(
+          _FeedMessage(
+            icon: Icons.error_outline,
             title: 'Unable to load feed',
             message: _error!,
           )
         else if (_feedRows.isEmpty)
-          EmptyState(
+          _FeedMessage(
+            icon: _selectedMode == _FeedMode.personalized
+                ? Icons.person_search_outlined
+                : Icons.article_outlined,
             title: _selectedMode == _FeedMode.personalized
                 ? 'No personalized posts yet'
                 : 'No posts yet',
             message: _selectedMode == _FeedMode.personalized
-                ? 'Follow more clubs or switch to global feed to see department updates.'
-                : 'Posts will appear here once clubs publish updates.',
+                ? 'Follow more clubs or switch to global feed.'
+                : 'Posts will appear once clubs publish updates.',
           )
         else
           ..._feedRows.map(
             (row) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 10),
               child: PostCard(
                 clubName: (row['club']?['name']?.toString() ?? 'Club'),
                 authorName: (row['author']?['name']?.toString() ?? 'Unknown'),
@@ -195,5 +202,98 @@ class _LiveHomeFeedSectionState extends State<LiveHomeFeedSection> {
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
+  }
+}
+
+// ── Compact Feed Tab Chip ──
+class _FeedTabChip extends StatelessWidget {
+  const _FeedTabChip({
+    required this.label,
+    required this.isActive,
+    this.isDisabled = false,
+    this.onTap,
+  });
+  final String label;
+  final bool isActive;
+  final bool isDisabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeBg = AppColors.cta.withValues(alpha: 0.12);
+    final inactiveBg = isDark ? AppColors.darkSurfaceSoft : const Color(0xFFF0F2F5);
+
+    return Material(
+      color: isActive ? activeBg : inactiveBg,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: isDisabled ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDisabled
+                  ? (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary)
+                      .withValues(alpha: 0.5)
+                  : isActive
+                      ? AppColors.cta
+                      : isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Empty / Error State for Feed ──
+class _FeedMessage extends StatelessWidget {
+  const _FeedMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(
+        children: [
+          Icon(icon, size: 36,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

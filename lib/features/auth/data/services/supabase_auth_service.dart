@@ -108,6 +108,18 @@ class SupabaseAuthService {
     }
   }
 
+  Future<void> sendPasswordResetEmail({
+    required String email,
+  }) async {
+    try {
+      await _client.auth.resetPasswordForEmail(email);
+    } on AuthException catch (error) {
+      throw AppException(error.message);
+    } catch (_) {
+      throw const AppException('Unable to send password reset email. Please try again.');
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _client.auth.signOut();

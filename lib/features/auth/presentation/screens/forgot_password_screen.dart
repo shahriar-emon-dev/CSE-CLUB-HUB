@@ -2,54 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_routes.dart';
 import '../../../../core/validation/input_validators.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/auth_header.dart';
-import '../../../../shared/widgets/password_field.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 
-class SignupScreen extends ConsumerStatefulWidget {
-  const SignupScreen({super.key});
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<SignupScreen> createState() => _SignupScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _SignupScreenState extends ConsumerState<SignupScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  String? _confirmPasswordValidator(String? value) {
-    final confirmedPassword = value ?? '';
-    if (confirmedPassword.isEmpty) return 'Confirm password is required';
-
-    if (confirmedPassword != _passwordController.text) {
-      // Why: We validate in UI first to avoid unnecessary auth requests when passwords differ.
-      return 'Passwords do not match';
-    }
-
-    return null;
   }
 
   Future<void> _submit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    await ref.read(authNotifierProvider.notifier).signUp(
+    final sent = await ref.read(authNotifierProvider.notifier).sendPasswordResetEmail(
           email: _emailController.text.trim(),
-          password: _passwordController.text,
         );
+
+    if (!mounted) return;
+
+    if (sent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent. Check your inbox and spam folder.'),
+        ),
+      );
+      context.pop();
+    }
   }
 
   @override
@@ -75,52 +69,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const AuthHeader(
-                        title: 'Create Account',
-                        subtitle: 'Use any valid email to join CSE Club Hub',
+                        title: 'Forgot Password',
+                        subtitle: 'Enter your email to get a reset link',
                       ),
                       const SizedBox(height: 24),
                       AppTextField(
                         label: 'Email',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
+                        textInputAction: TextInputAction.done,
                         prefixIcon: Icons.email_outlined,
                         validator: InputValidators.email,
                       ),
                       const SizedBox(height: 16),
-                      PasswordField(
-                        label: 'Password',
-                        controller: _passwordController,
-                        textInputAction: TextInputAction.done,
-                        validator: InputValidators.password,
-                      ),
-                      const SizedBox(height: 16),
-                      PasswordField(
-                        label: 'Confirm Password',
-                        controller: _confirmPasswordController,
-                        textInputAction: TextInputAction.done,
-                        validator: _confirmPasswordValidator,
+                      Text(
+                        'We will send a password reset email. After resetting, come back and sign in with the new password.',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                          height: 1.4,
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.orange.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: const Text(
-                          'All new accounts start as Student. Executive access is assigned only by an admin after review.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
                       if (authState.errorMessage != null)
                         Text(
                           authState.errorMessage!,
@@ -131,14 +100,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       if (authState.errorMessage != null)
                         const SizedBox(height: 16),
                       PrimaryButton(
-                        label: 'Continue',
+                        label: 'Send Reset Email',
                         isLoading: authState.isLoading,
                         onPressed: _submit,
                       ),
                       const SizedBox(height: 16),
                       TextButton(
                         onPressed: () => context.pop(),
-                        child: const Text('Already have an account? Login'),
+                        child: const Text('Back to Login'),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push(AppRoutes.signup),
+                        child: const Text('Create Account'),
                       ),
                     ],
                   ),

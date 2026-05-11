@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,217 +6,253 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_routes.dart';
-import '../../../../shared/widgets/app_header.dart';
 import '../../../../shared/widgets/club_card_widget.dart';
-import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/main_bottom_nav.dart';
-import '../../../../shared/widgets/role_badge.dart';
-import '../../../../shared/widgets/section_header.dart';
-import '../../../../shared/widgets/stats_card.dart';
 import '../../../auth/domain/entities/user_profile.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../widgets/create_post_card.dart';
 import '../widgets/live_home_feed_section.dart';
 import '../widgets/upcoming_events_section.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _refreshToken = 0;
+
+  Future<void> _refreshHome() async {
+    if (!mounted) return;
+    setState(() => _refreshToken++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final user = authState.user;
     final role = authState.role;
     final requestedExecutive = authState.profile?.roleRequest ?? false;
     final profile = authState.profile;
-
-    final roleLabel = switch (role) {
-      AppUserRole.admin => 'Admin',
-      AppUserRole.executive => 'Executive',
-      AppUserRole.student => 'Student',
-    };
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final displayName = profile?.fullName?.trim().isNotEmpty == true
         ? profile!.fullName!.trim()
         : user?.email?.split('@').first ?? 'Student';
 
+    final bgColor = isDark ? AppColors.darkBackground : const Color(0xFFF0F2F5);
+    final cardColor = isDark ? AppColors.darkSurface : Colors.white;
+    final dividerColor = isDark ? AppColors.darkInputBorder : const Color(0xFFDDDFE2);
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('CSE Club Hub'),
+        backgroundColor: cardColor,
+        elevation: 0,
+        scrolledUnderElevation: 1,
         surfaceTintColor: Colors.transparent,
+        title: Text(
+          'CSE Club Hub',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: AppColors.cta,
+            letterSpacing: -0.5,
+          ),
+        ),
         actions: [
-          IconButton(
-            onPressed: () => context.push(AppRoutes.search),
-            icon: const Icon(Icons.search),
+          _AppBarCircleButton(
+            icon: Icons.search,
+            onTap: () => context.push(AppRoutes.search),
+            isDark: isDark,
           ),
-          IconButton(
-            onPressed: () => context.push(AppRoutes.notifications),
-            icon: const Icon(Icons.notifications_outlined),
+          _AppBarCircleButton(
+            icon: Icons.notifications_outlined,
+            onTap: () => context.push(AppRoutes.notifications),
+            isDark: isDark,
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
+      body: RefreshIndicator(
+        color: AppColors.cta,
+        onRefresh: _refreshHome,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
+              constraints: const BoxConstraints(maxWidth: 680),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppHeader(
-                    title: 'Welcome back, $displayName',
-                    subtitle: 'Role: $roleLabel • stay on top of your club activity.',
-                    trailing: const RoleBadge(
-                      label: 'Live',
-                      icon: Icons.bolt,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  // ── Header + Quick Actions ──
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          AppColors.gradientStart,
-                          AppColors.gradientMiddle,
-                          AppColors.gradientEnd,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
+                    color: cardColor,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'CSE Club Hub',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    'Your feed, events, clubs, and admin tools in one polished workspace.',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.dashboard_customize_outlined,
-                              color: Colors.white,
-                              size: 36,
-                            ),
-                          ],
+                        Text(
+                          'Good to see you, $displayName',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
+                          ),
                         ),
-                        const SizedBox(height: 20),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth >= 500 ? 3 : 2;
-                            return GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: columns,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: columns == 2 ? 2.1 : 1.7,
-                              children: const [
-                                _LiveMiniStat(label: 'Clubs', table: 'clubs', filter: null),
-                                _LiveMiniStat(label: 'Events', table: 'events', filter: 'is_cancelled'),
-                                _LiveMiniStat(label: 'Posts', table: 'posts', filter: 'is_deleted'),
-                                _MovingHighlightCard(),
-                              ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Catch updates, events, and announcements from your clubs.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        if (role == AppUserRole.executive ||
+                            role == AppUserRole.admin)
+                          CreatePostCard(
+                            displayName: displayName,
+                            onCreatePressed: () => _showCreatePostComposer(
+                              context,
+                              onSuccess: _refreshHome,
+                            ),
+                            onImagePressed: () => _showCreatePostComposer(
+                              context,
+                              openImageHelp: true,
+                              onSuccess: _refreshHome,
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        _QuickActionRow(
+                          role: role,
+                          onCreatePost: () => _showCreatePostComposer(
+                            context,
+                            onSuccess: _refreshHome,
+                          ),
+                          onCreateEvent: () => _showCreateEventSheet(
+                            context,
+                            onSuccess: _refreshHome,
+                          ),
+                          onBrowseClubs: () => context.push(AppRoutes.clubs),
+                          onViewEvents: () => context.push(AppRoutes.events),
+                          onSavedPosts: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Saved posts will be available soon.'),
+                              ),
                             );
                           },
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (requestedExecutive && role == AppUserRole.student)
+                  Divider(height: 1, thickness: 1, color: dividerColor),
+
+                  // ── Quick Stats Strip ──
+                  Container(
+                    color: cardColor,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: const [
+                        _CompactStat(
+                            label: 'Clubs', table: 'clubs', filter: null,
+                            icon: Icons.groups_2_outlined),
+                        SizedBox(width: 8),
+                        _CompactStat(
+                            label: 'Events', table: 'events',
+                            filter: 'is_cancelled',
+                            icon: Icons.event_outlined),
+                        SizedBox(width: 8),
+                        _CompactStat(
+                            label: 'Posts', table: 'posts',
+                            filter: 'is_deleted',
+                            icon: Icons.article_outlined),
+                      ],
+                    ),
+                  ),
+                  _feedDivider(bgColor),
+
+                  // ── Pending Executive Request Notice ──
+                  if (requestedExecutive && role == AppUserRole.student) ...[
                     Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppColors.inputBorder),
-                      ),
-                      child: const Text(
-                        'Executive request is pending admin approval.',
-                        style: TextStyle(color: AppColors.textSecondary),
+                      color: cardColor,
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Icon(Icons.hourglass_top_rounded,
+                              color: AppColors.cta, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Your executive request is pending admin approval.',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  if (requestedExecutive && role == AppUserRole.student)
-                    const SizedBox(height: 16),
-                  const UpcomingEventsSection(),
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 8),
-                  const SectionHeader(
-                    title: 'Your Profile',
-                    subtitle: 'A compact summary of your student identity.',
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: StatsCard(
-                          label: 'Batch',
-                          value: profile?.batch ?? '—',
-                          icon: Icons.class_outlined,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: StatsCard(
-                          label: 'Section',
-                          value: profile?.section ?? '—',
-                          icon: Icons.segment,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const SectionHeader(
-                    title: 'Featured Feed',
-                    subtitle: 'A few recent club updates to keep the home screen lively.',
-                  ),
-                  const SizedBox(height: 12),
-                  if (role == AppUserRole.executive || role == AppUserRole.admin)
-                    CreatePostCard(
-                      displayName: displayName,
-                      onCreatePressed: () {
-                        _showCreatePostComposer(context);
-                      },
-                      onImagePressed: () {
-                        _showCreatePostComposer(context, openImageHelp: true);
-                      },
+                    _feedDivider(bgColor),
+                  ],
+
+                  // ── Upcoming Events (compact) ──
+                  Container(
+                    color: cardColor,
+                    padding: const EdgeInsets.only(top: 14, bottom: 14),
+                    child: UpcomingEventsSection(
+                      key: ValueKey('upcoming-events-$_refreshToken'),
                     ),
-                  if (role == AppUserRole.executive || role == AppUserRole.admin)
-                    const SizedBox(height: 12),
-                  const LiveHomeFeedSection(),
-                  const SizedBox(height: 16),
-                  const SectionHeader(
-                    title: 'Recommended Clubs',
-                    subtitle: 'Follow clubs to personalize your feed.',
                   ),
-                  const SizedBox(height: 12),
-                  const _LiveClubsList(),
-                  const SizedBox(height: 16),
-                  const EmptyState(
-                    title: 'No more updates right now',
-                    message: 'New posts, events, and notifications will appear here as clubs publish them.',
+                  _feedDivider(bgColor),
+
+                  // ── Live Feed ──
+                  Container(
+                    color: cardColor,
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                    child: LiveHomeFeedSection(
+                      key: ValueKey('home-feed-$_refreshToken'),
+                    ),
+                  ),
+
+
+
+                  // ── End of Feed ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle_outline_rounded,
+                              size: 32,
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.textSecondary),
+                          const SizedBox(height: 8),
+                          Text(
+                            'You\'re all caught up',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -231,45 +265,183 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+
+  static Widget _feedDivider(Color bgColor) {
+    return Container(height: 8, color: bgColor);
+  }
 }
 
-class _LiveMiniStat extends StatefulWidget {
-  const _LiveMiniStat({required this.label, required this.table, required this.filter});
-
-  final String label;
-  final String table;
-  final String? filter; // Column name where false = active (e.g. 'is_deleted', 'is_cancelled')
+// ── AppBar circle icon button (Facebook-style) ──
+class _AppBarCircleButton extends StatelessWidget {
+  const _AppBarCircleButton({
+    required this.icon,
+    required this.onTap,
+    required this.isDark,
+  });
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDark;
 
   @override
-  State<_LiveMiniStat> createState() => _LiveMiniStatState();
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: isDark ? AppColors.darkSurfaceSoft : const Color(0xFFE4E6EB),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, size: 22,
+                color: isDark
+                    ? AppColors.darkTextPrimary
+                    : AppColors.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _LiveMiniStatState extends State<_LiveMiniStat> {
+class _QuickActionRow extends StatelessWidget {
+  const _QuickActionRow({
+    required this.role,
+    required this.onCreatePost,
+    required this.onCreateEvent,
+    required this.onBrowseClubs,
+    required this.onViewEvents,
+    required this.onSavedPosts,
+  });
+
+  final AppUserRole? role;
+  final VoidCallback onCreatePost;
+  final VoidCallback onCreateEvent;
+  final VoidCallback onBrowseClubs;
+  final VoidCallback onViewEvents;
+  final VoidCallback onSavedPosts;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCreator =
+        role == AppUserRole.executive || role == AppUserRole.admin;
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (isCreator)
+          _QuickActionChip(
+            icon: Icons.edit_outlined,
+            label: 'Create Post',
+            onTap: onCreatePost,
+          ),
+        if (isCreator)
+          _QuickActionChip(
+            icon: Icons.event_available_outlined,
+            label: 'Create Event',
+            onTap: onCreateEvent,
+          ),
+        _QuickActionChip(
+          icon: Icons.groups_outlined,
+          label: 'Browse Clubs',
+          onTap: onBrowseClubs,
+        ),
+        _QuickActionChip(
+          icon: Icons.calendar_month_outlined,
+          label: 'View Events',
+          onTap: onViewEvents,
+        ),
+        _QuickActionChip(
+          icon: Icons.bookmark_outline,
+          label: 'Saved Posts',
+          onTap: onSavedPosts,
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? AppColors.darkSurfaceSoft : const Color(0xFFF3F4F6);
+
+    return Material(
+      color: cardBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: AppColors.cta),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color:
+                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Compact stat chip for the stats strip ──
+class _CompactStat extends StatefulWidget {
+  const _CompactStat({
+    required this.label,
+    required this.table,
+    required this.filter,
+    required this.icon,
+  });
+  final String label;
+  final String table;
+  final String? filter;
+  final IconData icon;
+
+  @override
+  State<_CompactStat> createState() => _CompactStatState();
+}
+
+class _CompactStatState extends State<_CompactStat> {
   int _count = 0;
   bool _loaded = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchCount();
+    _fetch();
   }
 
-  Future<void> _fetchCount() async {
+  Future<void> _fetch() async {
     try {
-      var query = Supabase.instance.client
-          .from(widget.table)
-          .select('id');
-
-      if (widget.filter != null) {
-        query = query.eq(widget.filter!, false);
-      }
-
-      final response = await query.count(CountOption.exact);
+      var q = Supabase.instance.client.from(widget.table).select('id');
+      if (widget.filter != null) q = q.eq(widget.filter!, false);
+      final r = await q.count(CountOption.exact);
       if (!mounted) return;
-      setState(() {
-        _count = response.count;
-        _loaded = true;
-      });
+      setState(() { _count = r.count; _loaded = true; });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loaded = true);
@@ -278,318 +450,48 @@ class _LiveMiniStatState extends State<_LiveMiniStat> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _loaded
-              ? Text(
-                  '$_count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                )
-              : const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-          const SizedBox(height: 4),
-          Text(
-            widget.label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MovingHighlightCard extends StatefulWidget {
-  const _MovingHighlightCard();
-
-  @override
-  State<_MovingHighlightCard> createState() => _MovingHighlightCardState();
-}
-
-class _MovingHighlightCardState extends State<_MovingHighlightCard> {
-  final SupabaseClient _client = Supabase.instance.client;
-
-  Timer? _ticker;
-  Timer? _refreshTicker;
-  int _activeIndex = 0;
-  bool _isLoading = true;
-
-  List<({String title, String subtitle, IconData icon, String route})> _highlights = const [
-    (
-      title: 'Loading updates',
-      subtitle: 'Pulling upcoming and trending highlights...',
-      icon: Icons.bolt_outlined,
-      route: AppRoutes.events,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHighlights();
-
-    _ticker = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (!mounted) return;
-      setState(() {
-        _activeIndex = (_activeIndex + 1) % _highlights.length;
-      });
-    });
-
-    _refreshTicker = Timer.periodic(const Duration(seconds: 45), (_) {
-      _loadHighlights(isSilentRefresh: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    _refreshTicker?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadHighlights({bool isSilentRefresh = false}) async {
-    if (!isSilentRefresh && mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
-
-    final now = DateTime.now().toUtc();
-    final startOfDay = DateTime.utc(now.year, now.month, now.day);
-
-    try {
-      final upcomingEvent = await _client
-          .from('events')
-          .select('title,event_datetime,venue')
-          .eq('is_cancelled', false)
-          .gte('event_datetime', now.toIso8601String())
-          .order('event_datetime', ascending: true)
-          .limit(1)
-          .maybeSingle();
-
-      final postsTodayResponse = await _client
-          .from('posts')
-          .select('id')
-          .eq('is_deleted', false)
-          .gte('created_at', startOfDay.toIso8601String())
-          .count(CountOption.exact);
-
-      final upcomingEventsResponse = await _client
-          .from('events')
-          .select('id')
-          .eq('is_cancelled', false)
-          .gte('event_datetime', now.toIso8601String())
-          .count(CountOption.exact);
-
-      final rsvpsResponse = await _client
-          .from('rsvps')
-          .select('id')
-          .count(CountOption.exact);
-
-      final postsToday = postsTodayResponse.count;
-      final upcomingEvents = upcomingEventsResponse.count;
-      final rsvpCount = rsvpsResponse.count;
-
-      final highlights = <({String title, String subtitle, IconData icon, String route})>[];
-
-      if (upcomingEvent != null) {
-        final eventTitle = (upcomingEvent['title']?.toString().trim().isNotEmpty ?? false)
-            ? upcomingEvent['title'].toString().trim()
-            : 'Upcoming Event';
-        final eventTime = _formatEventTime(upcomingEvent['event_datetime']?.toString());
-        final venue = upcomingEvent['venue']?.toString().trim() ?? '';
-
-        highlights.add((
-          title: eventTitle,
-          subtitle: venue.isEmpty ? eventTime : '$eventTime - $venue',
-          icon: Icons.event_available_outlined,
-          route: AppRoutes.events,
-        ));
-      }
-
-      highlights.add((
-        title: '$postsToday posts today',
-        subtitle: 'Fresh updates are flowing in your feed',
-        icon: Icons.campaign_outlined,
-        route: AppRoutes.search,
-      ));
-
-      highlights.add((
-        title: '$upcomingEvents upcoming events',
-        subtitle: '$rsvpCount total RSVPs across clubs',
-        icon: Icons.trending_up_outlined,
-        route: AppRoutes.calendar,
-      ));
-
-      if (!mounted) return;
-
-      setState(() {
-        _highlights = highlights;
-        _activeIndex = _activeIndex % _highlights.length;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _highlights = const [
-          (
-            title: 'Live insights unavailable',
-            subtitle: 'Showing rotating card. Data will retry automatically.',
-            icon: Icons.wifi_off_outlined,
-            route: AppRoutes.events,
-          ),
-        ];
-        _activeIndex = 0;
-        _isLoading = false;
-      });
-    }
-  }
-
-  String _formatEventTime(String? rawIso) {
-    if (rawIso == null || rawIso.isEmpty) return 'Soon';
-    final parsed = DateTime.tryParse(rawIso)?.toLocal();
-    if (parsed == null) return 'Soon';
-
-    final month = parsed.month.toString().padLeft(2, '0');
-    final day = parsed.day.toString().padLeft(2, '0');
-    final hour = parsed.hour.toString().padLeft(2, '0');
-    final minute = parsed.minute.toString().padLeft(2, '0');
-    return '$month/$day $hour:$minute';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final item = _highlights[_activeIndex];
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => context.push(item.route),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(item.icon, color: Colors.white, size: 18),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'What\'s Live',
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurfaceSoft : const Color(0xFFF0F2F5),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(widget.icon, size: 18,
+                color: AppColors.cta),
+            const SizedBox(width: 8),
+            _loaded
+                ? Text(
+                    '$_count',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary,
                     ),
+                  )
+                : const SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  const Spacer(),
-                  const Icon(Icons.open_in_new, size: 14, color: Colors.white),
-                ],
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                widget.label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
+                ),
               ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                      )
-                    : AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.12, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: Column(
-                          key: ValueKey(item.title),
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              item.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                height: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.subtitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-              Row(
-                children: List.generate(_highlights.length, (index) {
-                  final isActive = _activeIndex == index;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    margin: const EdgeInsets.only(right: 4),
-                    width: isActive ? 14 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: isActive ? 0.95 : 0.45),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -723,6 +625,7 @@ class _LiveClubsListState extends State<_LiveClubsList> {
 Future<void> _showCreatePostComposer(
   BuildContext context, {
   bool openImageHelp = false,
+  VoidCallback? onSuccess,
 }) async {
   final client = Supabase.instance.client;
   final imagePicker = ImagePicker();
@@ -786,7 +689,7 @@ Future<void> _showCreatePostComposer(
                   // Club selector
                   if (clubs.isNotEmpty)
                     DropdownButtonFormField<String>(
-                      value: selectedClubId,
+                      initialValue: selectedClubId,
                       decoration: InputDecoration(
                         hintText: 'Select a club',
                         border: OutlineInputBorder(
@@ -803,8 +706,7 @@ Future<void> _showCreatePostComposer(
                         setModalState(() => selectedClubId = value);
                       },
                     ),
-                  if (clubs.isNotEmpty)
-                    const SizedBox(height: 12),
+                  if (clubs.isNotEmpty) const SizedBox(height: 12),
                   TextField(
                     controller: textController,
                     minLines: 3,
@@ -923,7 +825,9 @@ Future<void> _showCreatePostComposer(
                               final content = textController.text.trim();
                               if (content.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Write something before posting.')),
+                                  const SnackBar(
+                                      content: Text(
+                                          'Write something before posting.')),
                                 );
                                 return;
                               }
@@ -931,7 +835,9 @@ Future<void> _showCreatePostComposer(
                               final user = client.auth.currentUser;
                               if (user == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Session expired. Please login again.')),
+                                  const SnackBar(
+                                      content: Text(
+                                          'Session expired. Please login again.')),
                                 );
                                 return;
                               }
@@ -943,7 +849,8 @@ Future<void> _showCreatePostComposer(
                                   'author_id': user.id,
                                   'content': content,
                                 };
-                                if (selectedClubId != null && selectedClubId!.isNotEmpty) {
+                                if (selectedClubId != null &&
+                                    selectedClubId!.isNotEmpty) {
                                   insertData['club_id'] = selectedClubId;
                                 }
 
@@ -966,11 +873,16 @@ Future<void> _showCreatePostComposer(
                                 for (var i = 0; i < pickedImages.length; i++) {
                                   final image = pickedImages[i];
                                   final bytes = await image.readAsBytes();
-                                  final extension = _detectImageExtension(image.path);
-                                  final objectPath = '${user.id}/$postId/${DateTime.now().millisecondsSinceEpoch}_$i.$extension';
-                                  final contentType = _contentTypeForExtension(extension);
+                                  final extension =
+                                      _detectImageExtension(image.path);
+                                  final objectPath =
+                                      '${user.id}/$postId/${DateTime.now().millisecondsSinceEpoch}_$i.$extension';
+                                  final contentType =
+                                      _contentTypeForExtension(extension);
 
-                                  await client.storage.from('post-media').uploadBinary(
+                                  await client.storage
+                                      .from('post-media')
+                                      .uploadBinary(
                                         objectPath,
                                         bytes,
                                         fileOptions: FileOptions(
@@ -979,7 +891,9 @@ Future<void> _showCreatePostComposer(
                                         ),
                                       );
 
-                                  final publicUrl = client.storage.from('post-media').getPublicUrl(objectPath);
+                                  final publicUrl = client.storage
+                                      .from('post-media')
+                                      .getPublicUrl(objectPath);
                                   mediaUrls.add(publicUrl);
                                 }
 
@@ -997,14 +911,19 @@ Future<void> _showCreatePostComposer(
 
                                 if (!context.mounted) return;
                                 Navigator.of(context).pop();
+                                onSuccess?.call();
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Post published successfully.')),
+                                  const SnackBar(
+                                      content:
+                                          Text('Post published successfully.')),
                                 );
                               } catch (error) {
                                 if (!context.mounted) return;
                                 setModalState(() => isSubmitting = false);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Failed to publish post: $error')),
+                                  SnackBar(
+                                      content: Text(
+                                          'Failed to publish post: $error')),
                                 );
                               }
                             },
@@ -1046,3 +965,249 @@ String _contentTypeForExtension(String extension) {
   }
 }
 
+class _EventClubOption {
+  const _EventClubOption({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
+Future<void> _showCreateEventSheet(
+  BuildContext context, {
+  VoidCallback? onSuccess,
+}) async {
+  final client = Supabase.instance.client;
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final venueController = TextEditingController();
+
+  try {
+    final clubsResponse = await client
+        .from('clubs')
+        .select('id,name')
+        .eq('is_active', true)
+        .order('name', ascending: true);
+
+    final clubs = (clubsResponse as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .map((row) => _EventClubOption(
+              id: row['id'].toString(),
+              name: row['name']?.toString() ?? 'Club',
+            ))
+        .toList();
+
+    if (!context.mounted) return;
+
+    if (clubs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active clubs available for event creation.')),
+      );
+      return;
+    }
+
+    String selectedClubId = clubs.first.id;
+    DateTime? selectedDateTime;
+    bool isSubmitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            Future<void> pickDateTime() async {
+              final now = DateTime.now();
+              final pickedDate = await showDatePicker(
+                context: sheetContext,
+                firstDate: now,
+                lastDate: DateTime(now.year + 5),
+                initialDate: selectedDateTime ?? now,
+              );
+
+              if (!sheetContext.mounted || pickedDate == null) return;
+
+              final pickedTime = await showTimePicker(
+                context: sheetContext,
+                initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? now),
+              );
+
+              if (!sheetContext.mounted || pickedTime == null) return;
+
+              setSheetState(() {
+                selectedDateTime = DateTime(
+                  pickedDate.year,
+                  pickedDate.month,
+                  pickedDate.day,
+                  pickedTime.hour,
+                  pickedTime.minute,
+                );
+              });
+            }
+
+            Future<void> submit() async {
+              final title = titleController.text.trim();
+              final description = descriptionController.text.trim();
+              final venue = venueController.text.trim();
+
+              if (title.isEmpty ||
+                  description.isEmpty ||
+                  venue.isEmpty ||
+                  selectedDateTime == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Fill all fields before creating the event.')),
+                );
+                return;
+              }
+
+              final currentUser = client.auth.currentUser;
+              if (currentUser == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Session expired. Please login again.')),
+                );
+                return;
+              }
+
+              setSheetState(() => isSubmitting = true);
+
+              try {
+                await client.from('events').insert({
+                  'title': title,
+                  'description': description,
+                  'event_datetime': selectedDateTime!.toUtc().toIso8601String(),
+                  'venue': venue,
+                  'club_id': selectedClubId,
+                  'created_by': currentUser.id,
+                });
+
+                if (!sheetContext.mounted) return;
+
+                Navigator.of(sheetContext).pop();
+                onSuccess?.call();
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(content: Text('Event created successfully.')),
+                );
+              } catch (error) {
+                if (!sheetContext.mounted) return;
+
+                setSheetState(() => isSubmitting = false);
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(content: Text('Failed to create event: $error')),
+                );
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Create Event',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        hintText: 'Enter event title',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: descriptionController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'Write event description',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: venueController,
+                      decoration: const InputDecoration(
+                        labelText: 'Venue',
+                        hintText: 'Enter event venue',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedClubId,
+                      decoration: const InputDecoration(labelText: 'Club'),
+                      items: clubs
+                          .map(
+                            (club) => DropdownMenuItem<String>(
+                              value: club.id,
+                              child: Text(club.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => selectedClubId = value);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: isSubmitting ? null : pickDateTime,
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      label: Text(
+                        selectedDateTime == null
+                            ? 'Select event date and time'
+                            : 'Selected: ${selectedDateTime!.toLocal()}',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: isSubmitting ? null : submit,
+                            child: Text(isSubmitting ? 'Creating...' : 'Create Event'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Unable to load clubs: $error')),
+    );
+  } finally {
+    titleController.dispose();
+    descriptionController.dispose();
+    venueController.dispose();
+  }
+}

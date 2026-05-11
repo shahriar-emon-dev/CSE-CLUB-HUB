@@ -2,24 +2,12 @@ class InputValidators {
 
   InputValidators._();
 
-  static const _allowedUniversityDomains = [
-    '@smuct.edu',
-    '@smuct.ac.bd',
-  ];
-
   static String? email(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) return 'Email is required';
 
     final isEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
     if (!isEmail) return 'Enter a valid email address';
-
-    final normalizedEmail = email.toLowerCase();
-    final isAllowedDomain = _allowedUniversityDomains.any(normalizedEmail.endsWith);
-
-    if (!isAllowedDomain) {
-      return 'Use your university email (@smuct.edu or @smuct.ac.bd)';
-    }
 
     return null;
   }

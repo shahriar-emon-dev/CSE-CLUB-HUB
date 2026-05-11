@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_routes.dart';
-import '../../../../shared/widgets/section_header.dart';
 
 // ==========================================
 // GLOBAL CONSTANTS AND CONFIGURATION
@@ -41,14 +40,29 @@ class _UpcomingEventsSectionState extends State<UpcomingEventsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(
-          title: 'Upcoming Events',
-          trailing: TextButton(
-            onPressed: () => context.push(AppRoutes.events),
-            child: const Text('See All'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Text(
+                'Upcoming Events',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.events),
+                child: const Text('See All'),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         StreamBuilder<List<Map<String, dynamic>>>(
           stream: Supabase.instance.client
               .from('events')
