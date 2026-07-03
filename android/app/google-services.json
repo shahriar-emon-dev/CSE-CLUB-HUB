@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "315246059123",
+    "project_id": "cseclubhub-25c92",
+    "storage_bucket": "cseclubhub-25c92.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:315246059123:android:0745da927b872cac529406",
+        "android_client_info": {
+          "package_name": "com.example.cseclubhub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAveN0fOS-7XB5y-nyy2DJY3Dz2XxUGjCs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
