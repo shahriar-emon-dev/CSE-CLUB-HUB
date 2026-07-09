@@ -17,7 +17,7 @@ final notificationsProvider = FutureProvider<List<AppNotification>>((ref) async 
   final userId = SupabaseConfig.currentUserId;
   if (userId == null) return [];
 
-  final channelName = 'public:notifications:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:notifications:$userId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,

@@ -125,8 +125,8 @@ class AdminModerationScreen extends ConsumerWidget {
           children: [
             _buildStatCard('In Queue', stats['inQueue'].toString(), AppColors.tertiary, borderLeftColor: AppColors.tertiary),
             _buildStatCard('High Risk', stats['highRisk'].toString(), AppColors.error, borderLeftColor: AppColors.error),
-            _buildStatCard('Resolved Today', stats['resolvedToday'].toString(), Colors.white),
-            _buildStatCard('Avg. Response', '12m', Colors.white), // Mock average response time
+            _buildStatCard('Resolved Today', (stats['resolvedToday'] ?? 0).toString(), Colors.white),
+            _buildStatCard('Avg. Response', '${stats['avgResponseMinutes'] ?? 0}m', Colors.white),
           ],
         );
       },

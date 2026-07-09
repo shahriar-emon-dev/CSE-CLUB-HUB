@@ -8,7 +8,7 @@ import '../../auth/providers/auth_provider.dart';
 final clubPostsProvider = FutureProvider.family<List<ClubPost>, String>((ref, clubId) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
-  final channelName = 'public:club_posts:$clubId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:club_posts:$clubId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -38,7 +38,7 @@ final clubPostDetailProvider = FutureProvider.family<ClubPost, String>((ref, pos
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) throw Exception('Unauthenticated');
 
-  final channelName = 'public:club_post_detail:$postId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:club_post_detail:$postId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -67,7 +67,7 @@ final clubPostCommentsProvider = FutureProvider.family<List<ClubPostComment>, St
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:club_post_comments:$postId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:club_post_comments:$postId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -96,7 +96,7 @@ final itemReactionsProvider = FutureProvider.family<Map<String, int>, String>((r
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return {'favorite': 0, 'fire': 0, 'pan_tool': 0};
 
-  final channelName = 'public:item_reactions:$itemId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:item_reactions:$itemId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,

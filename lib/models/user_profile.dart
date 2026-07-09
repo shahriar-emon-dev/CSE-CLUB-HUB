@@ -49,6 +49,7 @@ class UserProfile {
   bool get isSuperAdmin => role == UserRole.superAdmin;
   bool get isExecutive => role == UserRole.executive;
   bool get isMember => role == UserRole.member;
+  String? get clubId => managedClubId;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(

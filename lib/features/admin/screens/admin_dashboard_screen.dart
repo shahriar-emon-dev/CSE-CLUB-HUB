@@ -91,53 +91,75 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           children: [
             _buildStatCard(
               icon: Icons.person_add,
-              badge: '+12%',
+              badge: '+${stats.recentRegistrations}',
               label: 'Total Students',
               value: stats.totalStudents.toString(),
-              progressWidget: Container(
-                height: 4,
-                decoration: BoxDecoration(color: AppColors.surfaceVariantDark, borderRadius: BorderRadius.circular(2)),
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  width: 150,
-                  decoration: BoxDecoration(
-                    color: AppColors.tertiary,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)],
+              progressWidget: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('+${stats.recentRegistrations} registrations in last 30 days', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 4,
+                    decoration: BoxDecoration(color: AppColors.surfaceVariantDark, borderRadius: BorderRadius.circular(2)),
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 150,
+                      decoration: BoxDecoration(
+                        color: AppColors.tertiary,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             _buildStatCard(
               icon: Icons.hub,
-              badgeText: '6 CSE Depts',
+              badgeText: '${stats.totalPosts} Posts',
               label: 'Active Clubs',
               value: stats.activeClubs.toString(),
-              progressWidget: Row(
+              progressWidget: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
-                  const SizedBox(width: 4),
-                  Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
-                  const SizedBox(width: 4),
-                  Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.surfaceVariantDark, borderRadius: BorderRadius.circular(2)))),
+                  Text('${stats.totalComments} comments & ${stats.totalReactions} reactions across clubs', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
+                      const SizedBox(width: 4),
+                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
+                      const SizedBox(width: 4),
+                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.surfaceVariantDark, borderRadius: BorderRadius.circular(2)))),
+                    ],
+                  ),
                 ],
               ),
             ),
             _buildStatCard(
               icon: Icons.calendar_month,
-              badgeText: '32 Upcoming',
+              badgeText: '${stats.totalRsvps} RSVPs',
               label: 'Total Events',
               value: stats.totalEvents.toString(),
               progressWidget: Row(
                 children: [
-                  _buildStackedAvatar('https://lh3.googleusercontent.com/aida-public/AB6AXuB2QPbH948w53xf7g69OkyjauaM4OGmUrBq1_x90rLD-oYMy26GuTyFy2C3ejdh1MU1DKQRa0713bz4CSuW9OL9IuU81CLj716cKMCH36JArFkPZGSd9Mos7QigEwSFB-MlC7HcgfjYLhBgLBENHhhFw4LlQq6kVlAXAZZBWpW8t4oBci9KsaHtqPizmiUl_7aNoRMO-ZWBU6e5M-ArO9wwt9fd74oARp1JK2wi_K4UjeT7C_2qvLphVZpNkHxozE2VlDywpR0vZUc', 0),
-                  Transform.translate(offset: const Offset(-8, 0), child: _buildStackedAvatar('https://lh3.googleusercontent.com/aida-public/AB6AXuBYWJTQI298HWxO--ChDJCe4JNw5PxydETByOubObAq412cRBxIZ5j4jv9E-L1r9wa_YBx0Q-buSxvDEPuI6qmI4gD8rBG3WGhr5hPVCB70ab3FbinTzTRdtC7QyfycxqmXcW4nVCmdTM5TqHKuAFrJ7ZILO3VxkvSHb10W1AJqUbqOS9k7uv35685_Gh8gmGTGrDx9GLcjeotkVxlRDshmIKSxZsQNBg_C9JfiHdxCrFyaVnON3OsoKquDx7HPQ80DnmaXQeRlfkc', 1)),
+                  if (stats.recentAvatars.isNotEmpty) ...[
+                    for (int i = 0; i < stats.recentAvatars.length && i < 3; i++)
+                      Transform.translate(
+                        offset: Offset(i * -8.0, 0),
+                        child: _buildStackedAvatar(stats.recentAvatars[i]),
+                      ),
+                  ] else ...[
+                    Transform.translate(offset: const Offset(0, 0), child: _buildGenericAvatar(Icons.person)),
+                    Transform.translate(offset: const Offset(-8, 0), child: _buildGenericAvatar(Icons.groups)),
+                  ],
                   Transform.translate(
-                    offset: const Offset(-16, 0),
+                    offset: Offset((stats.recentAvatars.isEmpty ? 2 : stats.recentAvatars.length.clamp(1, 3)) * -8.0, 0),
                     child: Container(
                       width: 32, height: 32,
                       decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.tertiary, border: Border.all(color: const Color(0xFF1D100A), width: 2)),
-                      child: const Center(child: Text('+30', style: TextStyle(color: Color(0xFF412D00), fontSize: 10, fontWeight: FontWeight.bold))),
+                      child: Center(child: Text('+${stats.totalStudents}', style: const TextStyle(color: Color(0xFF412D00), fontSize: 10, fontWeight: FontWeight.bold))),
                     ),
                   ),
                 ],
@@ -146,15 +168,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             _buildStatCard(
               icon: Icons.report_problem,
               iconColor: AppColors.error,
-              badgeText: 'Urgent',
-              isUrgent: true,
+              badgeText: stats.pendingReports > 0 ? '${stats.pendingReports} Urgent' : 'All Clear',
+              isUrgent: stats.pendingReports > 0,
               label: 'Pending Reports',
               value: stats.pendingReports.toString(),
               progressWidget: Row(
-                children: const [
-                  Text('Review Queue', style: TextStyle(color: AppColors.tertiary, fontSize: 12)),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, color: AppColors.tertiary, size: 14),
+                children: [
+                  Text(stats.pendingReports > 0 ? 'Review Queue Action Needed' : 'No pending moderation reports', style: TextStyle(color: stats.pendingReports > 0 ? AppColors.error : AppColors.tertiary, fontSize: 12)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward, color: stats.pendingReports > 0 ? AppColors.error : AppColors.tertiary, size: 14),
                 ],
               ),
             ),
@@ -164,7 +186,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStackedAvatar(String url, int index) {
+  Widget _buildStackedAvatar(String url) {
+    if (url.isEmpty || !url.startsWith('http')) {
+      return _buildGenericAvatar(Icons.person);
+    }
     return Container(
       width: 32, height: 32,
       decoration: BoxDecoration(
@@ -172,6 +197,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         border: Border.all(color: const Color(0xFF1D100A), width: 2),
         image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
       ),
+    );
+  }
+
+  Widget _buildGenericAvatar(IconData iconData) {
+    return Container(
+      width: 32, height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceVariantDark,
+        border: Border.all(color: const Color(0xFF1D100A), width: 2),
+      ),
+      child: Icon(iconData, size: 16, color: AppColors.tertiary),
     );
   }
 
@@ -287,7 +324,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
             ElevatedButton.icon(
-              onPressed: () => context.go(AppRoutes.adminMembers),
+              onPressed: () => context.go('/admin/clubs'),
+              icon: const Icon(Icons.hub),
+              label: const Text('Manage Clubs'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryContainer,
+                foregroundColor: const Color(0xFF1D100A),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 12,
+                shadowColor: AppColors.primaryContainer.withValues(alpha: 0.5),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/admin/executives'),
               icon: const Icon(Icons.manage_accounts),
               label: const Text('Manage Executives'),
               style: ElevatedButton.styleFrom(

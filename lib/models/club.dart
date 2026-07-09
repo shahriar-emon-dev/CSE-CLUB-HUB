@@ -33,6 +33,10 @@ class Club {
     this.memberCount = 0,
   });
 
+  String get focusArea => categories.isNotEmpty ? categories.first : 'General';
+  String get category => focusArea;
+  int get followersCount => memberCount;
+
   factory Club.fromJson(Map<String, dynamic> json) {
     return Club(
       id: json['id'] as String,

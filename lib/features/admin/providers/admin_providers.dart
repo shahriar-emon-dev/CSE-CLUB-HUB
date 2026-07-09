@@ -5,6 +5,9 @@ import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
 import '../../../models/system_activity.dart';
 import '../../../models/content_report.dart';
+import '../../../models/club.dart';
+import '../../../models/club_executive.dart';
+import '../../../models/event.dart';
 import '../../clubs/providers/clubs_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -22,12 +25,26 @@ class DashboardStats {
   final int activeClubs;
   final int totalEvents;
   final int pendingReports;
+  final int totalPosts;
+  final int totalComments;
+  final int totalReactions;
+  final int totalRsvps;
+  final int recentRegistrations;
+  final List<String> recentAvatars;
+  final Map<String, int> clubMemberCounts;
 
   DashboardStats({
     required this.totalStudents,
     required this.activeClubs,
     required this.totalEvents,
     required this.pendingReports,
+    this.totalPosts = 0,
+    this.totalComments = 0,
+    this.totalReactions = 0,
+    this.totalRsvps = 0,
+    this.recentRegistrations = 0,
+    this.recentAvatars = const [],
+    this.clubMemberCounts = const {},
   });
 }
 
@@ -36,7 +53,7 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return DashboardStats(totalStudents: 0, activeClubs: 0, totalEvents: 0, pendingReports: 0);
 
-  final channelName = 'public:dashboard_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:dashboard_stats';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -52,6 +69,16 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'events',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'club_posts',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'comments',
           callback: (payload) => ref.invalidateSelf())
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -72,6 +99,13 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
     activeClubs: (stats['active_clubs'] ?? 0) as int,
     totalEvents: (stats['total_events'] ?? 0) as int,
     pendingReports: (stats['pending_reports'] ?? 0) as int,
+    totalPosts: (stats['total_posts'] ?? 0) as int,
+    totalComments: (stats['total_comments'] ?? 0) as int,
+    totalReactions: (stats['total_reactions'] ?? 0) as int,
+    totalRsvps: (stats['total_rsvps'] ?? 0) as int,
+    recentRegistrations: (stats['recent_registrations'] ?? 0) as int,
+    recentAvatars: (stats['recent_avatars'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    clubMemberCounts: (stats['club_member_counts'] as Map<dynamic, dynamic>?)?.map((k, v) => MapEntry(k.toString(), v as int)) ?? {},
   );
 });
 
@@ -81,12 +115,14 @@ class MemberStats {
   final int activeNow; // Mocked or calculated differently in future
   final int executives;
   final int pendingSync; // Mocked
+  final int recentGrowth;
 
   MemberStats({
     required this.totalMembers,
     required this.activeNow,
     required this.executives,
     required this.pendingSync,
+    this.recentGrowth = 0,
   });
 }
 
@@ -95,7 +131,7 @@ final memberStatsProvider = FutureProvider<MemberStats>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return MemberStats(totalMembers: 0, activeNow: 0, executives: 0, pendingSync: 0);
 
-  final channelName = 'public:member_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:member_stats';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -120,7 +156,8 @@ final memberStatsProvider = FutureProvider<MemberStats>((ref) async {
     totalMembers: (stats['total_students'] ?? 0) as int,
     activeNow: (stats['active_members'] ?? 0) as int, // Using active members for 'Active Now'
     executives: (stats['total_executives'] ?? 0) as int,
-    pendingSync: 0,
+    pendingSync: (stats['pending_reports'] ?? 0) as int,
+    recentGrowth: (stats['recent_registrations'] ?? 0) as int,
   );
 });
 
@@ -236,7 +273,7 @@ final moderationStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return {};
 
-  final channelName = 'public:mod_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:mod_stats';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -261,7 +298,7 @@ final contentReportsProvider = FutureProvider<List<ContentReport>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:content_reports:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:content_reports';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -334,5 +371,84 @@ class SystemSettingsNotifier extends StateNotifier<AsyncValue<void>> {
 
 final systemSettingsActionProvider = StateNotifierProvider<SystemSettingsNotifier, AsyncValue<void>>((ref) {
   return SystemSettingsNotifier(ref.watch(adminRepositoryProvider), ref);
+});
+
+// User Management Actions Notifier
+class UserManagementNotifier extends StateNotifier<AsyncValue<void>> {
+  final AdminRepository _repository;
+  final Ref _ref;
+
+  UserManagementNotifier(this._repository, this._ref) : super(const AsyncValue.data(null));
+
+  Future<void> updateStatus(String userId, String newStatus) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.updateUserStatus(userId, newStatus);
+      _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(dashboardStatsProvider);
+      _ref.invalidate(memberStatsProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> suspendUser(String userId, [String? reason]) => updateStatus(userId, 'suspended');
+  Future<void> activateUser(String userId, [String? reason]) => updateStatus(userId, 'active');
+
+  Future<void> deleteAccount(String userId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.deleteUserAccount(userId);
+      _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(dashboardStatsProvider);
+      _ref.invalidate(memberStatsProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> deleteUserAccount(String userId) => deleteAccount(userId);
+}
+
+final userManagementActionProvider = StateNotifierProvider<UserManagementNotifier, AsyncValue<void>>((ref) {
+  return UserManagementNotifier(ref.watch(adminRepositoryProvider), ref);
+});
+
+// Admin Clubs List Provider
+final adminClubsProvider = FutureProvider<List<Club>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final data = await SupabaseConfig.client
+      .from('club_list_view')
+      .select()
+      .order('name', ascending: true);
+  return (data as List).map((e) => Club.fromJson(e)).toList();
+});
+
+// Admin Executives List Provider
+final adminExecutivesListProvider = FutureProvider<List<ClubExecutive>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final response = await SupabaseConfig.client
+      .from('club_executives_view')
+      .select()
+      .order('full_name', ascending: true);
+  return (response as List).map((e) => ClubExecutive.fromJson(e)).toList();
+});
+
+// Admin Events List Provider
+final adminEventsListProvider = FutureProvider<List<Event>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final data = await SupabaseConfig.client
+      .from('event_list_view')
+      .select()
+      .order('event_date', ascending: false);
+  return (data as List).map((e) => Event.fromJson(e)).toList();
 });
 

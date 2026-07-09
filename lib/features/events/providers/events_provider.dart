@@ -3,13 +3,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/event.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../repositories/events_repository.dart';
+
+final eventsRepositoryProvider = Provider<EventsRepository>((ref) {
+  return EventsRepository();
+});
 
 // All published events
 final eventsProvider = FutureProvider<List<Event>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:events:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:events';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -31,13 +36,8 @@ final eventsProvider = FutureProvider<List<Event>>((ref) async {
     SupabaseConfig.client.removeChannel(channel);
   });
 
-  final data = await SupabaseConfig.client
-      .from('event_list_view')
-      .select()
-      .eq('is_published', true)
-      .order('event_date', ascending: true);
-      
-  return (data as List).map((e) => Event.fromJson(e)).toList();
+  final repository = ref.read(eventsRepositoryProvider);
+  return repository.getPublishedEvents();
 });
 
 // Club specific events
@@ -45,7 +45,7 @@ final clubEventsProvider = FutureProvider.family<List<Event>, String>((ref, club
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:club_events:$clubId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:club_events:$clubId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -67,14 +67,8 @@ final clubEventsProvider = FutureProvider.family<List<Event>, String>((ref, club
     SupabaseConfig.client.removeChannel(channel);
   });
 
-  final data = await SupabaseConfig.client
-      .from('event_list_view')
-      .select()
-      .eq('organizing_club_id', clubId)
-      .eq('is_published', true)
-      .order('event_date', ascending: true);
-      
-  return (data as List).map((e) => Event.fromJson(e)).toList();
+  final repository = ref.read(eventsRepositoryProvider);
+  return repository.getClubEvents(clubId);
 });
 
 // Single event detail
@@ -82,7 +76,7 @@ final eventDetailProvider = FutureProvider.family<Event?, String>((ref, eventId)
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return null;
 
-  final channelName = 'public:event_detail:$eventId:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:event_detail:$eventId';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -104,11 +98,8 @@ final eventDetailProvider = FutureProvider.family<Event?, String>((ref, eventId)
     SupabaseConfig.client.removeChannel(channel);
   });
 
-  final data = await SupabaseConfig.client
-      .from('event_list_view')
-      .select()
-      .eq('id', eventId);
-  return data.isNotEmpty ? Event.fromJson(data.first) : null;
+  final repository = ref.read(eventsRepositoryProvider);
+  return repository.getEventById(eventId);
 });
 
 // User's RSVP status for an event
@@ -151,35 +142,17 @@ final eventRsvpCountProvider = StreamProvider.family<int, String>((ref, eventId)
       .eq('event_id', eventId)
       .map((data) => data.where((e) => e['status'] == RsvpStatus.confirmed.value).length);
 });
+
 // RSVP actions
 class EventRsvpNotifier extends StateNotifier<AsyncValue<void>> {
-  EventRsvpNotifier() : super(const AsyncValue.data(null));
+  final EventsRepository _repository;
+
+  EventRsvpNotifier(this._repository) : super(const AsyncValue.data(null));
 
   Future<void> updateRsvp(String eventId, RsvpStatus rsvpStatus) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId!;
-      // First check if RSVP exists
-      final existing = await SupabaseConfig.client
-          .from('event_rsvps')
-          .select('id')
-          .eq('event_id', eventId)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-      if (existing != null) {
-        // Update
-        await SupabaseConfig.client.from('event_rsvps').update({
-          'status': rsvpStatus.value,
-        }).eq('id', existing['id']);
-      } else {
-        // Insert
-        await SupabaseConfig.client.from('event_rsvps').insert({
-          'event_id': eventId,
-          'user_id': userId,
-          'status': rsvpStatus.value,
-        });
-      }
+      await _repository.updateRsvp(eventId, rsvpStatus);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -189,12 +162,7 @@ class EventRsvpNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> cancelRsvp(String eventId) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId!;
-      await SupabaseConfig.client
-          .from('event_rsvps')
-          .delete()
-          .eq('event_id', eventId)
-          .eq('user_id', userId);
+      await _repository.cancelRsvp(eventId);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -203,13 +171,16 @@ class EventRsvpNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final rsvpNotifierProvider =
-    StateNotifierProvider<EventRsvpNotifier, AsyncValue<void>>(
-  (_) => EventRsvpNotifier(),
-);
+    StateNotifierProvider<EventRsvpNotifier, AsyncValue<void>>((ref) {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return EventRsvpNotifier(repo);
+    });
 
 // Event creation actions
 class EventNotifier extends StateNotifier<AsyncValue<void>> {
-  EventNotifier() : super(const AsyncValue.data(null));
+  final EventsRepository _repository;
+
+  EventNotifier(this._repository) : super(const AsyncValue.data(null));
 
   Future<String> submitEvent({
     required String title,
@@ -224,25 +195,19 @@ class EventNotifier extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception('Not logged in. Please sign in again.');
-
-      final data = await SupabaseConfig.client.from('events').insert({
-        'title': title,
-        'description': description,
-        'category': category,
-        'venue': venue,
-        'event_date': eventDate.toIso8601String(),
-        'end_date': endDate?.toIso8601String(),
-        'cover_image_url': coverImageUrl,
-        'capacity': capacity,
-        'organizing_club_id': organizingClubId,
-        'is_published': true, // Auto-publish for now
-        'created_by': userId,
-      }).select('id').single();
-
+      final id = await _repository.submitEvent(
+        title: title,
+        description: description,
+        category: category,
+        venue: venue,
+        eventDate: eventDate,
+        endDate: endDate,
+        coverImageUrl: coverImageUrl,
+        capacity: capacity,
+        organizingClubId: organizingClubId,
+      );
       state = const AsyncValue.data(null);
-      return data['id'] as String;
+      return id;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;
@@ -262,25 +227,18 @@ class EventNotifier extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception('Not logged in. Please sign in again.');
-
-      final updates = <String, dynamic>{
-        'title': title,
-        'description': description,
-        'category': category,
-        'venue': venue,
-        'event_date': eventDate.toIso8601String(),
-        'end_date': endDate?.toIso8601String(),
-        'capacity': capacity,
-        // ignore: use_null_aware_elements
-        if (organizingClubId != null) 'organizing_club_id': organizingClubId,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-      if (coverImageUrl != null) updates['cover_image_url'] = coverImageUrl;
-
-      await SupabaseConfig.client.from('events').update(updates).eq('id', eventId).select('id').single();
-
+      await _repository.updateEvent(
+        eventId,
+        title: title,
+        description: description,
+        category: category,
+        venue: venue,
+        eventDate: eventDate,
+        endDate: endDate,
+        coverImageUrl: coverImageUrl,
+        capacity: capacity,
+        organizingClubId: organizingClubId,
+      );
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -291,14 +249,7 @@ class EventNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> cancelEvent(String eventId) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception('Not logged in. Please sign in again.');
-
-      await SupabaseConfig.client.from('events').update({
-        'is_cancelled': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', eventId).select('id').single();
-
+      await _repository.cancelEvent(eventId);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -308,6 +259,7 @@ class EventNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final eventNotifierProvider =
-    StateNotifierProvider<EventNotifier, AsyncValue<void>>(
-  (_) => EventNotifier(),
-);
+    StateNotifierProvider<EventNotifier, AsyncValue<void>>((ref) {
+      final repo = ref.watch(eventsRepositoryProvider);
+      return EventNotifier(repo);
+    });

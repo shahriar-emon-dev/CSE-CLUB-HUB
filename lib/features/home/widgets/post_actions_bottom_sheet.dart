@@ -7,19 +7,116 @@ import '../../../../core/constants/supabase_config.dart';
 import '../providers/home_feed_provider.dart';
 import 'delete_confirmation_dialog.dart';
 
-Future<void> showPostActions(BuildContext context, {required String postId}) {
+import '../../auth/providers/auth_provider.dart';
+import '../../clubs/providers/club_posts_provider.dart';
+
+Future<void> showPostActions(
+  BuildContext context, {
+  required String postId,
+  bool isPinned = false,
+  String? currentContent,
+  String? clubId,
+}) {
   return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (context) => PostActionsBottomSheet(postId: postId),
+    builder: (context) => PostActionsBottomSheet(
+      postId: postId,
+      isPinned: isPinned,
+      currentContent: currentContent,
+      clubId: clubId,
+    ),
   );
 }
 
 class PostActionsBottomSheet extends ConsumerWidget {
   final String postId;
+  final bool isPinned;
+  final String? currentContent;
+  final String? clubId;
 
-  const PostActionsBottomSheet({super.key, required this.postId});
+  const PostActionsBottomSheet({
+    super.key,
+    required this.postId,
+    this.isPinned = false,
+    this.currentContent,
+    this.clubId,
+  });
+
+  Future<void> _togglePin(BuildContext context, WidgetRef ref) async {
+    context.pop();
+    try {
+      await SupabaseConfig.client
+          .from('club_posts')
+          .update({'is_pinned': !isPinned})
+          .eq('id', postId);
+      ref.invalidate(homeFeedProvider);
+      if (clubId != null) ref.invalidate(clubPostsProvider(clubId!));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isPinned ? 'Post unpinned' : 'Post pinned to top'), backgroundColor: AppColors.primary),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pin/unpin post: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _editPost(BuildContext context, WidgetRef ref) async {
+    context.pop();
+    final ctrl = TextEditingController(text: currentContent ?? '');
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13131F),
+        title: const Text('Edit Post Content', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 4,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFF0D0D14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await SupabaseConfig.client
+                    .from('club_posts')
+                    .update({'content': ctrl.text.trim()})
+                    .eq('id', postId);
+                ref.invalidate(homeFeedProvider);
+                if (clubId != null) ref.invalidate(clubPostsProvider(clubId!));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Post updated successfully'), backgroundColor: AppColors.primary),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update post: $e'), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _deletePost(BuildContext context, WidgetRef ref) async {
     context.pop();
@@ -30,6 +127,7 @@ class PostActionsBottomSheet extends ConsumerWidget {
       await SupabaseConfig.client.from('club_posts').delete().eq('id', postId);
       ref.invalidate(homeFeedProvider);
       ref.invalidate(unifiedFeedItemProvider(postId));
+      if (clubId != null) ref.invalidate(clubPostsProvider(clubId!));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Post deleted successfully'), backgroundColor: AppColors.primary),
@@ -47,8 +145,35 @@ class PostActionsBottomSheet extends ConsumerWidget {
     }
   }
 
+  Future<void> _reportPost(BuildContext context, WidgetRef ref) async {
+    context.pop();
+    try {
+      await SupabaseConfig.client.from('content_reports').insert({
+        'reporter_id': SupabaseConfig.currentUserId,
+        'content_type': 'post',
+        'post_id': postId,
+        'reason': 'User reported post from feed',
+        'status': 'pending',
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted to moderation queue.'), backgroundColor: AppColors.primary),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not report post: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final isAuthorized = profile != null && (profile.isSuperAdmin || profile.isAdmin || profile.isExecutive);
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
       child: Container(
@@ -91,14 +216,40 @@ class PostActionsBottomSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _buildActionItem(
-              context: context,
-              icon: Icons.delete,
-              title: 'Delete Post',
-              color: AppColors.error,
-              isError: true,
-              onTap: () => _deletePost(context, ref),
-            ),
+            if (isAuthorized) ...[
+              _buildActionItem(
+                context: context,
+                icon: isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                title: isPinned ? 'Unpin Post' : 'Pin to Top',
+                color: AppColors.primary,
+                onTap: () => _togglePin(context, ref),
+              ),
+              const SizedBox(height: 12),
+              _buildActionItem(
+                context: context,
+                icon: Icons.edit,
+                title: 'Edit Content',
+                color: Colors.white,
+                onTap: () => _editPost(context, ref),
+              ),
+              const SizedBox(height: 12),
+              _buildActionItem(
+                context: context,
+                icon: Icons.delete,
+                title: 'Delete Post',
+                color: AppColors.error,
+                isError: true,
+                onTap: () => _deletePost(context, ref),
+              ),
+            ] else ...[
+              _buildActionItem(
+                context: context,
+                icon: Icons.report_problem,
+                title: 'Report Post',
+                color: AppColors.warning,
+                onTap: () => _reportPost(context, ref),
+              ),
+            ],
             const SizedBox(height: 16),
             Divider(color: Colors.white.withValues(alpha: 0.1)),
             const SizedBox(height: 16),

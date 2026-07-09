@@ -22,8 +22,11 @@ class AdminShell extends ConsumerStatefulWidget {
 class _AdminShellState extends ConsumerState<AdminShell> {
   final List<_AdminNavItem> _navItems = [
     _AdminNavItem(icon: Icons.dashboard, label: 'System Overview', route: AppRoutes.adminDashboard),
-    _AdminNavItem(icon: Icons.groups, label: 'Member Management', route: AppRoutes.adminMembers),
-    _AdminNavItem(icon: Icons.gavel, label: 'Content Moderation', route: AppRoutes.adminModeration),
+    _AdminNavItem(icon: Icons.groups, label: 'User Management', route: AppRoutes.adminMembers),
+    _AdminNavItem(icon: Icons.hub, label: 'Club Management', route: '/admin/clubs'),
+    _AdminNavItem(icon: Icons.manage_accounts, label: 'Executives', route: '/admin/executives'),
+    _AdminNavItem(icon: Icons.event, label: 'Event Control', route: '/admin/events'),
+    _AdminNavItem(icon: Icons.gavel, label: 'Moderation', route: AppRoutes.adminModeration),
     _AdminNavItem(icon: Icons.article, label: 'Club Blogs', route: AppRoutes.adminBlogs),
   ];
 
@@ -68,6 +71,40 @@ class _AdminShellState extends ConsumerState<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(currentProfileProvider).valueOrNull;
+    if (profile != null && !profile.isSuperAdmin && !profile.isAdmin && !profile.isExecutive) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0D0D14),
+        body: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1D100A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.gavel, color: AppColors.error, size: 48),
+                const SizedBox(height: 16),
+                const Text('Access Restricted', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('You do not have permission to view the administrative portal.', style: TextStyle(color: AppColors.textSecondaryDark)),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => context.go(AppRoutes.home),
+                  icon: const Icon(Icons.home),
+                  label: const Text('Return to Home Feed'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
     final currentRoute = GoRouterState.of(context).fullPath ?? '';
 

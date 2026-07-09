@@ -20,13 +20,8 @@ final profileProvider = FutureProvider.family<UserProfile?, String?>((ref, userI
 
   final id = userId ?? SupabaseConfig.currentUserId;
   if (id == null) return null;
-  final data = await SupabaseConfig.client
-      .from('profiles')
-      .select()
-      .eq('id', id)
-      .maybeSingle();
-  if (data == null) return null;
-  return UserProfile.fromJson(data);
+  final repository = ref.read(profileRepositoryProvider);
+  return repository.getUserProfile(id);
 });
 
 /// User Profile and Dashboard Screen.
@@ -140,7 +135,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
 
   Future<void> _saveChanges(UserProfile profile) async {
     try {
-      await SupabaseConfig.client.from('profiles').update({
+      final repo = ref.read(profileRepositoryProvider);
+      await repo.updateProfile(profile.id, {
         'full_name': _nameCtrl.text.trim(),
         'student_id': _studentIdCtrl.text.trim().isEmpty ? null : _studentIdCtrl.text.trim(),
         'department': _selectedDept,
@@ -149,7 +145,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
         'group': _groupCtrl.text.trim().isEmpty ? null : _groupCtrl.text.trim(),
         'bio': _bioCtrl.text.trim(),
         'skills': _interests,
-      }).eq('id', profile.id);
+      });
       
       ref.invalidate(profileProvider(widget.userId));
       if (mounted) {
@@ -185,19 +181,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
       setState(() => _isUploading = true);
       
       final bytes = await image.readAsBytes();
-      final fileExt = image.name.split('.').last;
-      final fileName = '${profile.id}-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      final filePath = fileName;
-      
-      await SupabaseConfig.client.storage.from('avatars').uploadBinary(
-        filePath, 
-        bytes,
-        fileOptions: FileOptions(contentType: 'image/$fileExt'),
-      );
-      
-      final publicUrl = SupabaseConfig.client.storage.from('avatars').getPublicUrl(filePath);
-      
-      await SupabaseConfig.client.from('profiles').update({'avatar_url': publicUrl}).eq('id', profile.id);
+      final repo = ref.read(profileRepositoryProvider);
+      await repo.uploadAvatar(profile.id, bytes);
       
       ref.invalidate(profileProvider(widget.userId));
     } catch (e) {

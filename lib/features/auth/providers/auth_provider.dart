@@ -2,6 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
+import '../../profile/repositories/profile_repository.dart';
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepository();
+});
 
 /// StreamProvider that listens to Supabase authentication state changes.
 /// Provides the current authenticated [User] or null if unauthenticated.
@@ -16,19 +21,13 @@ final authSessionProvider = StreamProvider<String?>((ref) {
 });
 
 /// FutureProvider that fetches the [UserProfile] data for the currently authenticated user
-/// from the public.profiles table in Supabase.
+/// from the public.profiles table using ProfileRepository.
 final currentProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return null;
 
-  final data = await SupabaseConfig.client
-      .from('profiles')
-      .select()
-      .eq('id', user.id)
-      .maybeSingle();
-
-  if (data == null) return null;
-  return UserProfile.fromJson(data);
+  final repository = ref.read(profileRepositoryProvider);
+  return repository.getUserProfile(user.id);
 });
 
 // Auth actions notifier
@@ -58,13 +57,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         throw Exception('Registration failed. Please try again.');
       }
 
-      // Update profile with additional info and ensure default RBAC role
       await SupabaseConfig.client.from('profiles').update({
         'full_name': fullName,
-        // ignore: use_null_aware_elements
-        if (studentId != null) 'student_id': studentId,
-        // ignore: use_null_aware_elements
-        if (batch != null) 'batch': batch,
+        'student_id': ?studentId,
+        'batch': ?batch,
         'role': 'Regular Student',
       }).eq('id', response.user!.id);
 

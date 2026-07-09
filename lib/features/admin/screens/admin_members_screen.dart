@@ -338,30 +338,66 @@ class AdminMembersScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: isActionLoading
-                    ? null
-                    : () {
-                        if (isExecutive) {
-                          _showRevokeConfirmDialog(context, ref, user);
-                        } else {
-                          _showPromotionDialog(context, ref, user.id);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isExecutive ? AppColors.error.withValues(alpha: 0.2) : AppColors.tertiary,
-                  foregroundColor: isExecutive ? AppColors.error : const Color(0xFF412D00),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: isExecutive ? 0 : 8,
-                  shadowColor: isExecutive ? Colors.transparent : AppColors.tertiary.withValues(alpha: 0.2),
-                  side: isExecutive ? BorderSide(color: AppColors.error.withValues(alpha: 0.2)) : BorderSide.none,
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: isActionLoading
+                      ? null
+                      : () {
+                          if (isExecutive) {
+                            _showRevokeConfirmDialog(context, ref, user);
+                          } else {
+                            _showPromotionDialog(context, ref, user.id);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isExecutive ? AppColors.error.withValues(alpha: 0.2) : AppColors.tertiary,
+                    foregroundColor: isExecutive ? AppColors.error : const Color(0xFF412D00),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: isExecutive ? 0 : 8,
+                    shadowColor: isExecutive ? Colors.transparent : AppColors.tertiary.withValues(alpha: 0.2),
+                    side: isExecutive ? BorderSide(color: AppColors.error.withValues(alpha: 0.2)) : BorderSide.none,
+                  ),
+                  child: Text(isExecutive ? 'Revoke Executive' : 'Promote to Executive', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
                 ),
-                child: Text(isExecutive ? 'Revoke Executive' : 'Promote to Executive', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
-              ),
+                const SizedBox(width: 8),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: AppColors.textSecondaryDark),
+                  color: const Color(0xFF1D100A),
+                  onSelected: (action) {
+                    if (action == 'suspend') {
+                      _showSuspendConfirmDialog(context, ref, user);
+                    } else if (action == 'delete') {
+                      _showDeleteConfirmDialog(context, ref, user);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(
+                      value: 'suspend',
+                      child: Row(
+                        children: const [
+                          Icon(Icons.block, color: AppColors.warning, size: 18),
+                          SizedBox(width: 8),
+                          Text('Suspend / Activate Account', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: const [
+                          Icon(Icons.delete_forever, color: AppColors.error, size: 18),
+                          SizedBox(width: 8),
+                          Text('Delete Account Forever', style: TextStyle(color: AppColors.error, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -395,6 +431,58 @@ class AdminMembersScreen extends ConsumerWidget {
               Navigator.pop(ctx);
             },
             child: const Text('Revoke Executive Status'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuspendConfirmDialog(BuildContext context, WidgetRef ref, UserProfile user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13131F),
+        title: const Text('Suspend / Activate Account', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('Do you want to toggle account suspension for ${user.fullName} (${user.email})? A suspended account cannot log in or post anywhere.', style: const TextStyle(color: AppColors.textSecondaryDark)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning, foregroundColor: const Color(0xFF1D100A)),
+            onPressed: () {
+              ref.read(userManagementActionProvider.notifier).suspendUser(user.id, 'admin_action');
+              Navigator.pop(ctx);
+            },
+            child: const Text('Suspend Account'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer, foregroundColor: const Color(0xFF1D100A)),
+            onPressed: () {
+              ref.read(userManagementActionProvider.notifier).activateUser(user.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Activate Account'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, WidgetRef ref, UserProfile user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13131F),
+        title: const Text('Permanently Delete Account?', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+        content: Text('CAUTION: Are you sure you want to completely erase the account for ${user.fullName} (${user.email})? This action cannot be undone and deletes profile records.', style: const TextStyle(color: AppColors.textSecondaryDark)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () {
+              ref.read(userManagementActionProvider.notifier).deleteUserAccount(user.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete Permanently'),
           ),
         ],
       ),

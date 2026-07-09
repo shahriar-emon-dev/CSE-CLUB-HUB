@@ -3,50 +3,37 @@ import '../../../core/constants/supabase_config.dart';
 import '../../../models/club.dart';
 import '../../../models/club_executive.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../repositories/clubs_repository.dart';
+
+final clubsRepositoryProvider = Provider<ClubsRepository>((ref) {
+  return ClubsRepository();
+});
 
 final clubsProvider = FutureProvider<List<Club>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final data = await SupabaseConfig.client
-      .from('club_list_view')
-      .select()
-      .order('name', ascending: true);
-  return data.map((e) => Club.fromJson(e)).toList();
+  final repository = ref.read(clubsRepositoryProvider);
+  return repository.getClubs();
 });
 
 final clubDetailProvider = FutureProvider.family<Club?, String>((ref, clubSlugOrId) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return null;
 
-  var data = await SupabaseConfig.client
-      .from('club_list_view')
-      .select()
-      .eq('slug', clubSlugOrId);
-
-  if (data.isEmpty) {
-    data = await SupabaseConfig.client
-        .from('club_list_view')
-        .select()
-        .eq('id', clubSlugOrId);
-  }
-
-  return data.isNotEmpty ? Club.fromJson(data.first) : null;
+  final repository = ref.read(clubsRepositoryProvider);
+  return repository.getClubByIdOrSlug(clubSlugOrId);
 });
 
 final clubExecutivesProvider = FutureProvider.family<List<ClubExecutive>, String>((ref, clubId) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final response = await SupabaseConfig.client
-      .from('club_executives_view')
-      .select()
-      .eq('club_id', clubId);
-
-  return (response as List).map((e) => ClubExecutive.fromJson(e)).toList();
+  final repository = ref.read(clubsRepositoryProvider);
+  return repository.getClubExecutives(clubId);
 });
 
-// User's followed clubs
+// User's followed clubs stream
 final followedClubsProvider = StreamProvider<List<String>>((ref) {
   final userId = SupabaseConfig.currentUserId;
   if (userId == null) return Stream.value([]);
@@ -59,47 +46,44 @@ final followedClubsProvider = StreamProvider<List<String>>((ref) {
 });
 
 class FollowClubNotifier extends StateNotifier<AsyncValue<void>> {
-  FollowClubNotifier() : super(const AsyncValue.data(null));
+  final Ref _ref;
+  final ClubsRepository _repository;
 
-  Future<void> follow(String clubId) async {
+  FollowClubNotifier(this._ref, this._repository) : super(const AsyncValue.data(null));
+
+  Future<void> toggleMembership(String clubId, bool isCurrentlyFollowing) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception("Not logged in");
-      
-      await SupabaseConfig.client.from('club_followers').insert({
-        'club_id': clubId,
-        'user_id': userId,
-      });
+      await _repository.toggleMembership(clubId, isCurrentlyFollowing);
+      _ref.invalidate(clubDetailProvider(clubId));
+      _ref.invalidate(clubsProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
+  Future<void> follow(String clubId) async {
+    await toggleMembership(clubId, false);
+  }
+
   Future<void> unfollow(String clubId) async {
-    state = const AsyncValue.loading();
-    try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception("Not logged in");
-      
-      await SupabaseConfig.client
-          .from('club_followers')
-          .delete()
-          .eq('club_id', clubId)
-          .eq('user_id', userId);
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+    await toggleMembership(clubId, true);
   }
 }
 
 final followClubNotifierProvider =
-    StateNotifierProvider<FollowClubNotifier, AsyncValue<void>>((_) => FollowClubNotifier());
+    StateNotifierProvider<FollowClubNotifier, AsyncValue<void>>((ref) {
+      final repo = ref.watch(clubsRepositoryProvider);
+      return FollowClubNotifier(ref, repo);
+    });
+
+final toggleClubMembershipProvider = followClubNotifierProvider;
 
 class EditClubNotifier extends StateNotifier<AsyncValue<void>> {
-  EditClubNotifier() : super(const AsyncValue.data(null));
+  final ClubsRepository _repository;
+
+  EditClubNotifier(this._repository) : super(const AsyncValue.data(null));
 
   Future<void> updateClubProfile(String clubId, {
     String? name,
@@ -112,26 +96,16 @@ class EditClubNotifier extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception("Not logged in");
-
-      // Note: RLS ensures only executives/admins can update
-      final updates = <String, dynamic>{
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-      if (name != null) updates['name'] = name;
-      if (bio != null) updates['description'] = bio;
-      if (categories != null) updates['categories'] = categories;
-      if (meetingSchedule != null) updates['meeting_schedule'] = meetingSchedule;
-      if (location != null) updates['location'] = location;
-      if (logoUrl != null) updates['logo_url'] = logoUrl;
-      if (coverImageUrl != null) updates['cover_image_url'] = coverImageUrl;
-
-      await SupabaseConfig.client
-          .from('clubs')
-          .update(updates)
-          .eq('id', clubId);
-
+      await _repository.updateClubProfile(
+        clubId,
+        name: name,
+        bio: bio,
+        categories: categories,
+        meetingSchedule: meetingSchedule,
+        location: location,
+        logoUrl: logoUrl,
+        coverImageUrl: coverImageUrl,
+      );
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -140,4 +114,7 @@ class EditClubNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final editClubNotifierProvider =
-    StateNotifierProvider<EditClubNotifier, AsyncValue<void>>((_) => EditClubNotifier());
+    StateNotifierProvider<EditClubNotifier, AsyncValue<void>>((ref) {
+      final repo = ref.watch(clubsRepositoryProvider);
+      return EditClubNotifier(repo);
+    });

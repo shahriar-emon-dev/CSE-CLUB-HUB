@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/constants/supabase_config.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -46,13 +47,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> with Si
       try {
         final userId = SupabaseConfig.currentUserId;
         if (userId != null) {
-          await SupabaseConfig.client.from('profiles').update({
+          final repo = ref.read(profileRepositoryProvider);
+          await repo.updateProfile(userId, {
             'full_name': _nameCtrl.text.trim(),
             'student_id': _studentIdCtrl.text.trim(),
             'batch': _batchCtrl.text.trim(),
-            // Assuming section/cluster is stored in bio or skills or custom columns
-            // since schema doesn't have section explicitly.
-          }).eq('id', userId);
+          });
         }
         if (mounted) {
           context.go(AppRoutes.home);

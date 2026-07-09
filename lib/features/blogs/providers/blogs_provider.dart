@@ -9,7 +9,7 @@ final blogsProvider = FutureProvider<List<Blog>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:blogs:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:blogs';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,

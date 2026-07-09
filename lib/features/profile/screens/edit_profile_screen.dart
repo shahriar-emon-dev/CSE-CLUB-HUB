@@ -59,7 +59,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     try {
       final userId = SupabaseConfig.currentUserId!;
-      await SupabaseConfig.client.from('profiles').update({
+      final repo = ref.read(profileRepositoryProvider);
+      await repo.updateProfile(userId, {
         'full_name': _nameCtrl.text.trim(),
         'bio': _bioCtrl.text.trim().isEmpty ? null : _bioCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
@@ -67,7 +68,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         'linkedin_url': _linkedinCtrl.text.trim().isEmpty ? null : _linkedinCtrl.text.trim(),
         'portfolio_url': _portfolioCtrl.text.trim().isEmpty ? null : _portfolioCtrl.text.trim(),
         'skills': _skills,
-      }).eq('id', userId);
+      });
 
       ref.invalidate(currentProfileProvider);
       ref.invalidate(profileProvider(null));

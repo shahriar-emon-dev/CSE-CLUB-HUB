@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
 import '../../../models/event.dart';
 import '../../../models/blog.dart';
+import '../../../models/club.dart';
 import '../../clubs/providers/clubs_provider.dart';
+import '../repositories/search_repository.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -26,6 +27,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _isFocused = false;
   
   List<UserProfile> _members = [];
+  List<Club> _clubs = [];
   List<Event> _events = [];
   List<Blog> _blogs = [];
   
@@ -51,22 +53,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _search(String q) async {
     if (q.trim().isEmpty) {
-      setState(() { _members = []; _events = []; _blogs = []; });
+      setState(() { _members = []; _clubs = []; _events = []; _blogs = []; });
       return;
     }
     setState(() => _isSearching = true);
     try {
-      final q2 = '%${q.trim()}%';
-      final results = await Future.wait([
-        SupabaseConfig.client.from('profiles').select().ilike('full_name', q2).eq('is_approved', true).limit(5),
-        SupabaseConfig.client.from('events').select().ilike('title', q2).eq('is_published', true).limit(5),
-        SupabaseConfig.client.from('blogs').select().ilike('title', q2).eq('status', 'published').limit(5),
-      ]);
+      final repo = SearchRepository();
+      final bundle = await repo.searchPlatform(q, limit: 10);
 
       setState(() {
-        _members = (results[0] as List).map((m) => UserProfile.fromJson(m)).toList();
-        _events = (results[1] as List).map((e) => Event.fromJson(e)).toList();
-        _blogs = (results[2] as List).map((b) => Blog.fromJson(b)).toList();
+        _members = bundle.users;
+        _clubs = bundle.clubs;
+        _events = bundle.events;
+        _blogs = bundle.blogs;
       });
     } catch (e) {
       debugPrint(e.toString());
@@ -77,7 +76,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasResults = _query.isNotEmpty && (_members.isNotEmpty || _events.isNotEmpty || _blogs.isNotEmpty);
+    final bool hasResults = _query.isNotEmpty && (_members.isNotEmpty || _clubs.isNotEmpty || _events.isNotEmpty || _blogs.isNotEmpty);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D14),
@@ -442,6 +441,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (_events.isNotEmpty && (_selectedFilterIndex == 0 || _selectedFilterIndex == 2))
           ..._events.map((e) => _buildEventCard(e)),
           
+        // Club Row
+        if (_clubs.isNotEmpty && (_selectedFilterIndex == 0 || _selectedFilterIndex == 3))
+          ..._clubs.map((c) => _buildClubCard(c)),
+          
         // User Row
         if (_members.isNotEmpty && (_selectedFilterIndex == 0 || _selectedFilterIndex == 4))
           ..._members.map((m) => _buildUserCard(m)),
@@ -450,6 +453,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (_blogs.isNotEmpty && (_selectedFilterIndex == 0 || _selectedFilterIndex == 1))
           ..._blogs.map((b) => _buildPostCard(b)),
       ],
+    );
+  }
+
+  Widget _buildClubCard(Club c) {
+    return GestureDetector(
+      onTap: () => context.push('/clubs/${c.slug.isNotEmpty ? c.slug : c.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF13131F),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(color: AppColors.surfaceContainerHighDark, borderRadius: BorderRadius.circular(12)),
+              child: c.logoUrl != null && c.logoUrl!.isNotEmpty
+                  ? ClipRRect(borderRadius: BorderRadius.circular(12), child: CachedNetworkImage(imageUrl: c.logoUrl!, fit: BoxFit.cover))
+                  : const Icon(Icons.group, color: AppColors.primary, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(c.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text('${c.category} • ${c.followersCount} followers', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.textSecondaryDark),
+          ],
+        ),
+      ),
     );
   }
 

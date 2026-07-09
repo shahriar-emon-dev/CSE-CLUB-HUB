@@ -4,6 +4,7 @@ import '../../../models/system_activity.dart';
 import '../../../models/content_report.dart';
 import 'dart:typed_data';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/services/supabase_query_helper.dart';
 
 class AdminRepository {
   final SupabaseClient _supabase;
@@ -15,24 +16,46 @@ class AdminRepository {
     if (user == null) {
       throw Exception('Unauthorized: No active session token.');
     }
-    // Checking super_admin role might require checking the profile, but for now we enforce 
-    // that the token is present. RLS handles the rest securely.
   }
 
-  // Fetches live platform statistics directly from active database tables
+  /// Fetches platform statistics dynamically using the single-pass database RPC
+  /// (`get_admin_dashboard_metrics`). Falls back safely if the RPC is unavailable during migration.
   Future<Map<String, dynamic>> getPlatformStatistics() async {
-    try {
+    return SupabaseQueryHelper.runQuery('getPlatformStatistics', () async {
+      try {
+        final rpcResult = await _supabase.rpc('get_admin_dashboard_metrics');
+        if (rpcResult != null && rpcResult is Map) {
+          final map = Map<String, dynamic>.from(rpcResult);
+          map['recent_registrations'] = map['recent_registrations'] ?? 0;
+          map['recent_avatars'] = <String>[];
+          map['avg_response_minutes'] = map['avg_response_minutes'] ?? 0;
+          map['club_member_counts'] = <String, int>{};
+          return map;
+        }
+      } catch (e, st) {
+        AppLogger.error('RPC get_admin_dashboard_metrics unavailable or failed, falling back to parallel query stats', e, st);
+      }
+
+      // Safe Parallel Fallback Query
       final results = await Future.wait([
-        _supabase.from('profiles').select('id, role, status'),
+        _supabase.from('profiles').select('id, role, status, avatar_url, created_at'),
         _supabase.from('clubs').select('id, status'),
-        _supabase.from('events').select('id'),
+        _supabase.from('events').select('id, is_cancelled'),
         _supabase.from('content_reports').select('id, status, severity, resolved_at'),
+        _supabase.from('club_posts').select('id'),
+        _supabase.from('comments').select('id'),
+        _supabase.from('club_post_reactions').select('reaction_type'),
+        _supabase.from('event_rsvps').select('id'),
       ]);
 
       final profiles = results[0] as List;
       final clubs = results[1] as List;
       final events = results[2] as List;
       final reports = results[3] as List;
+      final posts = results[4] as List;
+      final comments = results[5] as List;
+      final reactions = results[6] as List;
+      final rsvps = results[7] as List;
 
       final totalStudents = profiles.length;
       final activeMembers = profiles.where((p) {
@@ -50,9 +73,23 @@ class AdminRepository {
         return st == 'active' || st.isEmpty;
       }).length;
 
-      final totalEvents = events.length;
-
       final now = DateTime.now();
+      int recentRegistrations = 0;
+      final recentAvatars = <String>[];
+      for (final p in profiles) {
+        final createdAtStr = p['created_at']?.toString();
+        if (createdAtStr != null) {
+          final dt = DateTime.tryParse(createdAtStr)?.toLocal();
+          if (dt != null && now.difference(dt).inDays <= 30) {
+            recentRegistrations++;
+          }
+        }
+        final avatar = p['avatar_url']?.toString() ?? '';
+        if (avatar.isNotEmpty && recentAvatars.length < 5) {
+          recentAvatars.add(avatar);
+        }
+      }
+
       int pendingReports = 0;
       int highRiskReports = 0;
       int resolvedToday = 0;
@@ -80,151 +117,126 @@ class AdminRepository {
         'active_members': activeMembers,
         'total_executives': totalExecutives,
         'active_clubs': activeClubs,
-        'total_events': totalEvents,
+        'total_events': events.length,
+        'total_posts': posts.length,
+        'total_comments': comments.length,
+        'total_reactions': reactions.length,
+        'total_rsvps': rsvps.length,
+        'recent_registrations': recentRegistrations,
+        'recent_avatars': recentAvatars,
         'pending_reports': pendingReports,
         'high_risk_reports': highRiskReports,
         'resolved_today_reports': resolvedToday,
+        'avg_response_minutes': 0,
+        'club_member_counts': <String, int>{},
       };
-    } catch (e, st) {
-      AppLogger.error('Failed to fetch parallel platform statistics, attempting fallback queries', e, st);
-      int totalStudents = 0;
-      int activeMembers = 0;
-      int totalExecutives = 0;
-      int activeClubs = 0;
-      int totalEvents = 0;
-      int pendingReports = 0;
-      int highRiskReports = 0;
-      int resolvedToday = 0;
-
-      try {
-        final p = await _supabase.from('profiles').select('id, role, status');
-        final list = p as List;
-        totalStudents = list.length;
-        activeMembers = list.where((item) => (item['status'] ?? 'active').toString().toLowerCase() == 'active').length;
-        totalExecutives = list.where((item) {
-          final r = (item['role'] ?? '').toString().toLowerCase();
-          return r.contains('executive') || r.contains('admin');
-        }).length;
-      } catch (_) {}
-
-      try {
-        final c = await _supabase.from('clubs').select('id');
-        activeClubs = (c as List).length;
-      } catch (_) {}
-
-      try {
-        final ev = await _supabase.from('events').select('id');
-        totalEvents = (ev as List).length;
-      } catch (_) {}
-
-      try {
-        final rep = await _supabase.from('content_reports').select('id, status, severity');
-        for (final item in rep as List) {
-          if ((item['status'] ?? '').toString().toLowerCase() == 'pending') {
-            pendingReports++;
-            final pr = (item['severity'] ?? '').toString().toLowerCase();
-            if (pr == 'high' || pr == 'urgent') highRiskReports++;
-          }
-        }
-      } catch (_) {}
-
-      return {
-        'total_students': totalStudents,
-        'active_members': activeMembers,
-        'total_executives': totalExecutives,
-        'active_clubs': activeClubs,
-        'total_events': totalEvents,
-        'pending_reports': pendingReports,
-        'high_risk_reports': highRiskReports,
-        'resolved_today_reports': resolvedToday,
-      };
-    }
+    }, fallback: {
+      'total_students': 0,
+      'active_members': 0,
+      'total_executives': 0,
+      'active_clubs': 0,
+      'total_events': 0,
+      'total_posts': 0,
+      'total_comments': 0,
+      'total_reactions': 0,
+      'total_rsvps': 0,
+      'recent_registrations': 0,
+      'recent_avatars': <String>[],
+      'pending_reports': 0,
+      'high_risk_reports': 0,
+      'resolved_today_reports': 0,
+      'avg_response_minutes': 0,
+      'club_member_counts': <String, int>{},
+    });
   }
 
-  // System Activity Stream
+  /// System Activity Stream
   Stream<List<SystemActivity>> getSystemActivitiesStream() {
-    return _supabase.from('system_activities').stream(primaryKey: ['id'])
-      .order('created_at', ascending: false)
-      .limit(50)
-      .map((data) => data.map((e) => SystemActivity.fromJson(e)).toList());
-  }
-
-  // Member Management Queries
-  Future<List<UserProfile>> getUsers({String? searchQuery, int limit = 10, int offset = 0}) async {
-    var query = _supabase.from('profiles').select();
-    
-    if (searchQuery != null && searchQuery.isNotEmpty) {
-      query = query.or('full_name.ilike.%$searchQuery%,student_id.ilike.%$searchQuery%');
+    try {
+      return _supabase.from('system_activities').stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .limit(50)
+        .map((data) => data.map((e) => SystemActivity.fromJson(e)).toList())
+        .handleError((error) {
+          AppLogger.error('Error in system_activities stream: $error');
+          return <SystemActivity>[];
+        });
+    } catch (e, st) {
+      AppLogger.error('Failed to create system_activities stream', e, st);
+      return Stream.value([]);
     }
-    
-    final response = await query.order('created_at', ascending: false).range(offset, offset + limit - 1);
-    return (response as List).map((e) => UserProfile.fromJson(e)).toList();
   }
 
-  // Role Management
+  /// Member Management Queries (Paginated & Column-Optimized)
+  Future<List<UserProfile>> getUsers({String? searchQuery, int limit = 15, int offset = 0}) async {
+    return SupabaseQueryHelper.runQuery('getUsers', () async {
+      var query = _supabase.from('profiles').select('id, email, full_name, role, status, avatar_url, student_id, department, batch, skills, bio, created_at');
+      
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        query = query.or('full_name.ilike.%$searchQuery%,student_id.ilike.%$searchQuery%,email.ilike.%$searchQuery%');
+      }
+      
+      final response = await query.order('created_at', ascending: false).range(offset, SupabaseQueryHelper.calcEndRange(offset, limit));
+      return (response as List).map((e) => UserProfile.fromJson(e)).toList();
+    }, fallback: <UserProfile>[]);
+  }
+
+  /// Role Management
   Future<void> promoteToExecutive(String userId, String clubId, String roleTitle) async {
     _checkSuperAdmin();
-    try {
+    return SupabaseQueryHelper.runQuery('promoteToExecutive', () async {
       await _supabase.rpc('assign_executive_role', params: {
         'p_user_id': userId,
         'p_club_id': clubId,
         'p_role_title': roleTitle,
       });
       AppLogger.info('Promoted user $userId to $roleTitle in club $clubId');
-    } catch (e, st) {
-      AppLogger.error('Failed to promote user $userId', e, st);
-      rethrow;
-    }
+    });
   }
 
   Future<void> revokeExecutive(String userId) async {
     _checkSuperAdmin();
-    try {
+    return SupabaseQueryHelper.runQuery('revokeExecutive', () async {
       await _supabase.rpc('revoke_executive_role', params: {
         'p_user_id': userId,
       });
       AppLogger.info('Revoked executive status for user $userId');
-    } catch (e, st) {
-      AppLogger.error('Failed to revoke executive status for user $userId', e, st);
-      rethrow;
-    }
+    });
   }
 
-  // Club Management
+  /// Club Management
   Future<void> createClub({
     required String name,
     required String focusArea,
     required String description,
     required String iconName,
     required String colorHex,
-    dynamic logoFile, // Can be File or bytes depending on platform
+    dynamic logoFile,
     dynamic coverFile,
   }) async {
-    String? logoUrl;
-    String? coverUrl;
-
-    // Helper to upload image if provided
-    Future<String?> uploadClubImage(dynamic file, String type) async {
-      if (file == null) return null;
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$type.jpg';
-      final storagePath = 'clubs/$fileName';
-      
-      // Upload using proper method based on file type (web vs mobile)
-      if (file is Uint8List) {
-        await _supabase.storage.from('club-logos').uploadBinary(storagePath, file, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-      } else {
-        await _supabase.storage.from('club-logos').upload(storagePath, file);
-      }
-      return _supabase.storage.from('club-logos').getPublicUrl(storagePath);
-    }
-
-    logoUrl = await uploadClubImage(logoFile, 'logo');
-    coverUrl = await uploadClubImage(coverFile, 'cover');
-
-    final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-
     _checkSuperAdmin();
-    try {
+    return SupabaseQueryHelper.runQuery('createClub', () async {
+      String? logoUrl;
+      String? coverUrl;
+
+      Future<String?> uploadClubImage(dynamic file, String type) async {
+        if (file == null) return null;
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_$type.jpg';
+        final storagePath = 'clubs/$fileName';
+        
+        if (file is Uint8List) {
+          await _supabase.storage.from('club-logos').uploadBinary(storagePath, file, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+        } else {
+          await _supabase.storage.from('club-logos').upload(storagePath, file);
+        }
+        return _supabase.storage.from('club-logos').getPublicUrl(storagePath);
+      }
+
+      logoUrl = await uploadClubImage(logoFile, 'logo');
+      coverUrl = await uploadClubImage(coverFile, 'cover');
+
+      final slug = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+
       await _supabase.from('clubs').insert({
         'name': name,
         'focus_area': focusArea,
@@ -236,30 +248,28 @@ class AdminRepository {
         'cover_image_url': coverUrl,
       });
       AppLogger.info('Created new club: $name');
-    } catch (e, st) {
-      AppLogger.error('Failed to create club $name', e, st);
-      rethrow;
-    }
+    });
   }
 
-  // Content Moderation
-  Future<List<ContentReport>> getContentReports({String? filterType}) async {
-    var query = _supabase.from('admin_content_reports_view').select().eq('status', 'pending');
-    
-    if (filterType != null && filterType != 'All') {
-      // Map 'Posts', 'Events', 'Comments' to 'post', 'event', 'comment'
-      final type = filterType.toLowerCase();
-      if (type.startsWith('post')) {
-        query = query.eq('content_type', 'post');
-      } else if (type.startsWith('event')) {
-        query = query.eq('content_type', 'event');
-      } else if (type.startsWith('comment')) {
-        query = query.eq('content_type', 'comment');
+  /// Content Moderation (Paginated & Filtered)
+  Future<List<ContentReport>> getContentReports({String? filterType, int limit = 20, int offset = 0}) async {
+    return SupabaseQueryHelper.runQuery('getContentReports', () async {
+      var query = _supabase.from('admin_content_reports_view').select().eq('status', 'pending');
+      
+      if (filterType != null && filterType != 'All') {
+        final type = filterType.toLowerCase();
+        if (type.startsWith('post')) {
+          query = query.eq('content_type', 'post');
+        } else if (type.startsWith('event')) {
+          query = query.eq('content_type', 'event');
+        } else if (type.startsWith('comment')) {
+          query = query.eq('content_type', 'comment');
+        }
       }
-    }
-    
-    final response = await query.order('created_at', ascending: false);
-    return (response as List).map((e) => ContentReport.fromJson(e)).toList();
+      
+      final response = await query.order('created_at', ascending: false).range(offset, SupabaseQueryHelper.calcEndRange(offset, limit));
+      return (response as List).map((e) => ContentReport.fromJson(e)).toList();
+    }, fallback: <ContentReport>[]);
   }
 
   Future<Map<String, int>> getModerationStats() async {
@@ -268,21 +278,19 @@ class AdminRepository {
       'inQueue': (stats['pending_reports'] ?? 0) as int,
       'highRisk': (stats['high_risk_reports'] ?? 0) as int,
       'resolvedToday': (stats['resolved_today_reports'] ?? 0) as int,
+      'avgResponseMinutes': (stats['avg_response_minutes'] ?? 0) as int,
     };
   }
 
   Future<void> resolveReport(String reportId, String action, String contentType, String? entityId) async {
     _checkSuperAdmin();
-    try {
-      // action is either 'approve' or 'delete'
-      // 1. Mark report as resolved
+    return SupabaseQueryHelper.runQuery('resolveReport', () async {
       await _supabase.from('content_reports').update({
         'status': 'resolved',
         'resolved_at': DateTime.now().toUtc().toIso8601String(),
         'resolved_by': _supabase.auth.currentUser?.id,
       }).eq('id', reportId);
 
-      // 2. Perform the physical/soft deletion if requested
       if (action == 'delete' && entityId != null) {
         if (contentType == 'post') {
           await _supabase.from('club_posts').delete().eq('id', entityId);
@@ -295,7 +303,6 @@ class AdminRepository {
         }
       }
       
-      // 3. Log the moderation action
       await _supabase.from('moderation_logs').insert({
         'moderator_id': _supabase.auth.currentUser!.id,
         'report_id': reportId,
@@ -303,31 +310,91 @@ class AdminRepository {
         'notes': 'Action performed via Admin Portal',
       });
       AppLogger.info('Resolved report $reportId with action $action');
-    } catch (e, st) {
-      AppLogger.error('Failed to resolve report $reportId', e, st);
-      rethrow;
-    }
+    });
   }
 
-  // System Settings
+  /// System Settings
   Future<Map<String, dynamic>> getSystemSettings() async {
     _checkSuperAdmin();
-    final response = await _supabase.from('system_settings').select();
-    return {for (var item in response) item['setting_key'] as String: item['setting_value']};
+    return SupabaseQueryHelper.runQuery('getSystemSettings', () async {
+      final response = await _supabase.from('system_settings').select('setting_key, setting_value');
+      return {for (var item in response) item['setting_key'] as String: item['setting_value']};
+    }, fallback: <String, dynamic>{});
   }
 
   Future<void> updateSystemSetting(String key, Map<String, dynamic> value) async {
     _checkSuperAdmin();
-    try {
+    return SupabaseQueryHelper.runQuery('updateSystemSetting', () async {
       await _supabase.from('system_settings').upsert({
         'setting_key': key,
         'setting_value': value,
         'updated_by': _supabase.auth.currentUser?.id,
       }, onConflict: 'setting_key');
       AppLogger.info('Updated system setting $key');
-    } catch (e, st) {
-      AppLogger.error('Failed to update system setting $key', e, st);
-      rethrow;
-    }
+    });
+  }
+
+  /// User Management Actions
+  Future<void> updateUserStatus(String userId, String newStatus) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('updateUserStatus', () async {
+      await _supabase.from('profiles').update({'status': newStatus}).eq('id', userId);
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'user_status_changed',
+        'notes': 'User $userId status set to $newStatus',
+      });
+      AppLogger.info('Updated user $userId status to $newStatus');
+    });
+  }
+
+  Future<void> deleteUserAccount(String userId) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('deleteUserAccount', () async {
+      await _supabase.from('profiles').delete().eq('id', userId);
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'user_deleted',
+        'notes': 'Account deleted for user $userId via Admin Portal',
+      });
+      AppLogger.info('Deleted profile account for user $userId');
+    });
+  }
+
+  Future<void> updateClubDetails({
+    required String clubId,
+    required String name,
+    required String focusArea,
+    required String description,
+    required String colorHex,
+    String? logoUrl,
+    String? coverUrl,
+  }) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('updateClubDetails', () async {
+      final updateData = {
+        'name': name,
+        'focus_area': focusArea,
+        'description': description,
+        'color_hex': colorHex,
+      };
+      if (logoUrl != null) updateData['logo_url'] = logoUrl;
+      if (coverUrl != null) updateData['cover_image_url'] = coverUrl;
+
+      await _supabase.from('clubs').update(updateData).eq('id', clubId);
+      AppLogger.info('Updated details for club $clubId');
+    });
+  }
+
+  Future<void> cancelOrDeleteEvent(String eventId, {required bool isDelete}) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('cancelOrDeleteEvent', () async {
+      if (isDelete) {
+        await _supabase.from('events').delete().eq('id', eventId);
+      } else {
+        await _supabase.from('events').update({'is_cancelled': true}).eq('id', eventId);
+      }
+      AppLogger.info('Event $eventId processed with delete=$isDelete');
+    });
   }
 }

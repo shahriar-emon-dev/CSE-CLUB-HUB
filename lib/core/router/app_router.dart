@@ -33,6 +33,9 @@ import '../../features/forum/screens/forum_screen.dart';
 import '../../features/forum/screens/thread_detail_screen.dart';
 import '../../features/forum/screens/create_thread_screen.dart';
 import '../../features/admin/screens/admin_blogs_screen.dart';
+import '../../features/admin/screens/admin_clubs_screen.dart';
+import '../../features/admin/screens/admin_executives_screen.dart';
+import '../../features/admin/screens/admin_events_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../widgets/main_shell.dart';
@@ -75,6 +78,9 @@ class AppRoutes {
 
   static const String adminDashboard = '/admin';
   static const String adminMembers = '/admin/members';
+  static const String adminClubs = '/admin/clubs';
+  static const String adminExecutives = '/admin/executives';
+  static const String adminEvents = '/admin/events';
   static const String adminModeration = '/admin/moderation';
   static const String adminBlogs = '/admin/blogs';
 }
@@ -233,12 +239,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Admin shell with side nav
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
           GoRoute(path: AppRoutes.adminDashboard, builder: (_, _) => const AdminDashboardScreen()),
           GoRoute(path: AppRoutes.adminMembers, builder: (_, _) => const AdminMembersScreen()),
+          GoRoute(path: AppRoutes.adminClubs, builder: (_, _) => const AdminClubsScreen()),
+          GoRoute(path: AppRoutes.adminExecutives, builder: (_, _) => const AdminExecutivesScreen()),
+          GoRoute(path: AppRoutes.adminEvents, builder: (_, _) => const AdminEventsScreen()),
           GoRoute(path: AppRoutes.adminModeration, builder: (_, _) => const AdminModerationScreen()),
           GoRoute(path: AppRoutes.adminBlogs, builder: (_, _) => const AdminBlogsScreen()),
         ],

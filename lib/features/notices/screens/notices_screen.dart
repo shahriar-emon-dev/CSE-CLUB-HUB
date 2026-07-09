@@ -12,7 +12,7 @@ final noticesProvider = FutureProvider<List<Notice>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
-  final channelName = 'public:notices:${DateTime.now().millisecondsSinceEpoch}';
+  final channelName = 'public:notices';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
