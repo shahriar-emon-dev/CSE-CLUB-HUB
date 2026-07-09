@@ -7,8 +7,12 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/forum.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final forumCategoriesProvider = FutureProvider<List<ForumCategory>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final data = await SupabaseConfig.client
       .from('forum_categories')
       .select()
@@ -17,6 +21,9 @@ final forumCategoriesProvider = FutureProvider<List<ForumCategory>>((ref) async 
 });
 
 final forumThreadsProvider = FutureProvider.family<List<ForumThread>, String?>((ref, categoryId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final channelName = 'public:forum_threads:${DateTime.now().millisecondsSinceEpoch}';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(

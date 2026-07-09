@@ -8,7 +8,7 @@ import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/email_verification_screen.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/home/screens/home_screen.dart';
-import '../../features/home/screens/post_detail_screen.dart';
+import '../../features/home/screens/unified_post_detail_screen.dart';
 import '../../features/home/screens/create_post_screen.dart';
 import '../../features/events/screens/events_list_screen.dart';
 import '../../features/events/screens/event_detail_screen.dart';
@@ -79,12 +79,15 @@ class AppRoutes {
   static const String adminBlogs = '/admin/blogs';
 }
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final profileAsync = ref.watch(currentProfileProvider);
   final profile = profileAsync.valueOrNull;
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.onboarding,
     debugLogDiagnostics: true,
     redirect: (context, state) {
@@ -151,7 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.createPost, builder: (_, _) => const CreatePostScreen()),
           GoRoute(
             path: AppRoutes.postDetail,
-            builder: (_, state) => PostDetailScreen(postId: state.pathParameters['id']!),
+            builder: (_, state) => UnifiedPostDetailScreen(postId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: AppRoutes.events,

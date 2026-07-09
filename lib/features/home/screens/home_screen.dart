@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
+import '../../../features/admin/screens/create_club_screen.dart';
 import '../../../models/club.dart';
 import '../../../models/notice.dart';
 
@@ -78,7 +79,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                   subtitle: const Text('Create a new organization', style: TextStyle(color: AppColors.textSecondaryDark)),
                   onTap: () {
                     context.pop();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Club creation coming soon!')));
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CreateClubScreen()),
+                    );
                   },
                 ),
                 ListTile(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/router/app_router.dart';
 import '../providers/admin_providers.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'create_club_screen.dart';
@@ -147,7 +149,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               badgeText: 'Urgent',
               isUrgent: true,
               label: 'Pending Reports',
-              value: '12', // Mocked pending reports
+              value: stats.pendingReports.toString(),
               progressWidget: Row(
                 children: const [
                   Text('Review Queue', style: TextStyle(color: AppColors.tertiary, fontSize: 12)),
@@ -285,7 +287,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () => context.go(AppRoutes.adminMembers),
               icon: const Icon(Icons.manage_accounts),
               label: const Text('Manage Executives'),
               style: ElevatedButton.styleFrom(
@@ -299,7 +301,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () => context.go(AppRoutes.adminModeration),
               icon: const Icon(Icons.security),
               label: const Text('Moderate Content'),
               style: OutlinedButton.styleFrom(
@@ -311,7 +313,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => const _SystemConfigDialog(),
+                );
+              },
               icon: const Icon(Icons.settings_suggest),
               label: const Text('System Config'),
               style: ElevatedButton.styleFrom(
@@ -493,3 +500,101 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 }
+
+class _SystemConfigDialog extends ConsumerStatefulWidget {
+  const _SystemConfigDialog();
+
+  @override
+  ConsumerState<_SystemConfigDialog> createState() => _SystemConfigDialogState();
+}
+
+class _SystemConfigDialogState extends ConsumerState<_SystemConfigDialog> {
+  final _thresholdController = TextEditingController();
+
+  @override
+  void dispose() {
+    _thresholdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(systemSettingsProvider);
+    final actionLoading = ref.watch(systemSettingsActionProvider).isLoading;
+
+    ref.listen(systemSettingsActionProvider, (prev, next) {
+      next.whenOrNull(
+        data: (_) {
+          if (prev?.isLoading == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Global system settings updated successfully.'), backgroundColor: AppColors.primary),
+            );
+            Navigator.of(context).pop();
+          }
+        },
+        error: (e, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update system settings: $e'), backgroundColor: AppColors.error),
+          );
+        },
+      );
+    });
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF13131F),
+      title: const Text('Global Policy Configuration', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      content: settingsAsync.when(
+        loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: AppColors.tertiary))),
+        error: (e, _) => Text('Error loading policies: $e', style: const TextStyle(color: AppColors.error)),
+        data: (settings) {
+          final expirationSetting = settings['profile_expiration'] as Map<String, dynamic>?;
+          final currentThreshold = expirationSetting?['threshold_days']?.toString() ?? '365';
+          if (_thresholdController.text.isEmpty) {
+            _thresholdController.text = currentThreshold;
+          }
+
+          return ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Profile Expiration Threshold (Days)', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _thresholdController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. 365',
+                    hintStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                    filled: true,
+                    fillColor: const Color(0xFF0D0D14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Profiles inactive for longer than this duration will be automatically flagged for archival.', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12, fontStyle: FontStyle.italic)),
+              ],
+            ),
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.tertiary, foregroundColor: const Color(0xFF412D00)),
+          onPressed: actionLoading ? null : () {
+            final days = int.tryParse(_thresholdController.text) ?? 365;
+            ref.read(systemSettingsActionProvider.notifier).updateSetting('profile_expiration', {'threshold_days': days});
+          },
+          child: actionLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF412D00))) : const Text('Save Policy'),
+        ),
+      ],
+    );
+  }
+}
+

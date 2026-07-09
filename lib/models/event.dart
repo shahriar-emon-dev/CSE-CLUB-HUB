@@ -58,8 +58,8 @@ class Event {
       description: json['description'] as String?,
       category: EventCategory.fromString(json['category'] as String? ?? 'general'),
       venue: json['venue'] as String?,
-      eventDate: DateTime.parse(json['event_date'] as String),
-      endDate: json['end_date'] != null ? DateTime.parse(json['end_date'] as String) : null,
+      eventDate: DateTime.parse(json['event_date'] as String).toLocal(),
+      endDate: json['end_date'] != null ? DateTime.parse(json['end_date'] as String).toLocal() : null,
       coverImageUrl: json['cover_image_url'] as String? ?? json['media_asset_url'] as String?,
       capacity: json['capacity'] as int?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
@@ -67,8 +67,8 @@ class Event {
       isCancelled: json['is_cancelled'] as bool? ?? false,
       visibility: json['visibility'] as String? ?? 'public',
       createdBy: json['created_by'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
       organizingClubId: json['organizing_club_id'] as String? ?? json['club_id'] as String?,
       authorName: json['author_name'] as String?,
       organizerName: json['organizer_name'] as String? ?? json['club_name'] as String?,
@@ -137,7 +137,7 @@ class EventRsvp {
       userId: json['user_id'] as String,
       status: RsvpStatus.fromString(json['status'] as String? ?? 'confirmed'),
       attended: json['attended'] as bool? ?? false,
-      registeredAt: DateTime.parse(json['registered_at'] as String),
+      registeredAt: DateTime.parse(json['registered_at'] as String).toLocal(),
     );
   }
 }

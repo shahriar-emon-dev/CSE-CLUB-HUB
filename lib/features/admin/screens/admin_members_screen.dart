@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,23 @@ class AdminMembersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(adminActionProvider, (previous, next) {
+      next.whenOrNull(
+        error: (e, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Action failed: $e'), backgroundColor: AppColors.error),
+          );
+        },
+        data: (_) {
+          if (previous?.isLoading == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Member role updated successfully.'), backgroundColor: AppColors.primary),
+            );
+          }
+        },
+      );
+    });
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
       child: Column(
@@ -136,90 +154,100 @@ class AdminMembersScreen extends ConsumerWidget {
           ),
         ),
       ),
-    ).wrapWithBlur(20);
+    ).wrapWithBlur(20, 16);
   }
 
   Widget _buildMembersTable(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(paginatedUsersProvider);
     final isActionLoading = ref.watch(adminActionProvider).isLoading;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF13131F).withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.1), blurRadius: 20)],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-            decoration: BoxDecoration(color: const Color(0xFF261812).withValues(alpha: 0.5)),
-            child: Row(
-              children: const [
-                Expanded(flex: 3, child: Text('Member Info', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Student ID', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Role Status', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Administrative Actions', textAlign: TextAlign.right, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: math.max(constraints.maxWidth, 850),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF13131F).withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.1), blurRadius: 20)],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                    decoration: BoxDecoration(color: const Color(0xFF261812).withValues(alpha: 0.5)),
+                    child: Row(
+                      children: const [
+                        Expanded(flex: 3, child: Text('Member Info', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
+                        Expanded(flex: 2, child: Text('Student ID', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
+                        Expanded(flex: 2, child: Text('Role Status', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
+                        Expanded(flex: 2, child: Text('Administrative Actions', textAlign: TextAlign.right, style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  ),
+                  usersAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(48.0),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.tertiary)),
+                    ),
+                    error: (e, st) => Padding(
+                      padding: const EdgeInsets.all(48.0),
+                      child: Center(child: Text('Failed to load users: $e', style: const TextStyle(color: AppColors.error))),
+                    ),
+                    data: (users) {
+                      if (users.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(48.0),
+                          child: Center(child: Text('No users found.', style: TextStyle(color: AppColors.textSecondaryDark))),
+                        );
+                      }
+                      return Column(
+                        children: users.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final user = entry.value;
+                          return _buildTableRow(
+                            context: context,
+                            user: user,
+                            ref: ref,
+                            isActionLoading: isActionLoading,
+                            showBorder: index != users.length - 1,
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF261812).withValues(alpha: 0.3),
+                      border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Showing top results', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
+                        Row(
+                          children: [
+                            IconButton(icon: const Icon(Icons.chevron_left, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
+                            _buildPageButton('1', true),
+                            _buildPageButton('2', false),
+                            _buildPageButton('3', false),
+                            IconButton(icon: const Icon(Icons.chevron_right, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          usersAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(48.0),
-              child: Center(child: CircularProgressIndicator(color: AppColors.tertiary)),
-            ),
-            error: (e, st) => Padding(
-              padding: const EdgeInsets.all(48.0),
-              child: Center(child: Text('Failed to load users: $e', style: const TextStyle(color: AppColors.error))),
-            ),
-            data: (users) {
-              if (users.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(48.0),
-                  child: Center(child: Text('No users found.', style: TextStyle(color: AppColors.textSecondaryDark))),
-                );
-              }
-              return Column(
-                children: users.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final user = entry.value;
-                  return _buildTableRow(
-                    context: context,
-                    user: user,
-                    ref: ref,
-                    isActionLoading: isActionLoading,
-                    showBorder: index != users.length - 1,
-                  );
-                }).toList(),
-              );
-            },
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF261812).withValues(alpha: 0.3),
-              border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Showing top results', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
-                Row(
-                  children: [
-                    IconButton(icon: const Icon(Icons.chevron_left, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
-                    _buildPageButton('1', true),
-                    _buildPageButton('2', false),
-                    _buildPageButton('3', false),
-                    IconButton(icon: const Icon(Icons.chevron_right, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).wrapWithBlur(20);
+        );
+      },
+    ).wrapWithBlur(20, 24);
   }
 
   Widget _buildPageButton(String text, bool isSelected) {
@@ -257,12 +285,15 @@ class AdminMembersScreen extends ConsumerWidget {
             flex: 3,
             child: Row(
               children: [
-                Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover),
-                    border: isExecutive ? Border.all(color: AppColors.primaryContainer, width: 2) : null,
+                Hero(
+                  tag: 'admin_avatar_${user.id}',
+                  child: Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      image: DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover),
+                      border: isExecutive ? Border.all(color: AppColors.primaryContainer, width: 2) : null,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -271,7 +302,8 @@ class AdminMembersScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(user.fullName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
-                      Text(user.department ?? 'Unknown Department', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14), overflow: TextOverflow.ellipsis, maxLines: 1),
+                      Text('${user.department ?? "CSE"} • Batch ${user.batch ?? "N/A"}', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
+                      Text(user.email, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11), overflow: TextOverflow.ellipsis, maxLines: 1),
                     ],
                   ),
                 ),
@@ -314,7 +346,7 @@ class AdminMembersScreen extends ConsumerWidget {
                     ? null
                     : () {
                         if (isExecutive) {
-                          ref.read(adminActionProvider.notifier).revokeExecutive(user.id);
+                          _showRevokeConfirmDialog(context, ref, user);
                         } else {
                           _showPromotionDialog(context, ref, user.id);
                         }
@@ -328,7 +360,7 @@ class AdminMembersScreen extends ConsumerWidget {
                   shadowColor: isExecutive ? Colors.transparent : AppColors.tertiary.withValues(alpha: 0.2),
                   side: isExecutive ? BorderSide(color: AppColors.error.withValues(alpha: 0.2)) : BorderSide.none,
                 ),
-                child: Text(isExecutive ? 'Revoke Executive' : 'Promote to Executive', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                child: Text(isExecutive ? 'Revoke Executive' : 'Promote to Executive', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
               ),
             ),
           ),
@@ -341,6 +373,31 @@ class AdminMembersScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => _PromotionDialog(userId: userId, parentRef: ref),
+    );
+  }
+
+  void _showRevokeConfirmDialog(BuildContext context, WidgetRef ref, UserProfile user) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13131F),
+        title: const Text('Revoke Executive Role', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to demote ${user.fullName} back to regular student status? They will lose all administrative write access immediately.', style: const TextStyle(color: AppColors.textSecondaryDark)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () {
+              ref.read(adminActionProvider.notifier).revokeExecutive(user.id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Revoke Executive Status'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -422,10 +479,13 @@ class _PromotionDialogState extends ConsumerState<_PromotionDialog> {
 }
 
 extension _BlurExtension on Widget {
-  Widget wrapWithBlur(double sigma) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-      child: this,
+  Widget wrapWithBlur(double sigma, [double radius = 24.0]) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: this,
+      ),
     );
   }
 }

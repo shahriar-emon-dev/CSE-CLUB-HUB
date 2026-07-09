@@ -2,9 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/blog.dart';
+import '../../auth/providers/auth_provider.dart';
 
 // All published blogs
 final blogsProvider = FutureProvider<List<Blog>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final channelName = 'public:blogs:${DateTime.now().millisecondsSinceEpoch}';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
@@ -30,6 +34,9 @@ final blogsProvider = FutureProvider<List<Blog>>((ref) async {
 
 // Blogs by category
 final blogsByCategoryProvider = FutureProvider.family<List<Blog>, String?>((ref, category) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   var query = SupabaseConfig.client
       .from('blog_list_view')
       .select()
@@ -43,6 +50,9 @@ final blogsByCategoryProvider = FutureProvider.family<List<Blog>, String?>((ref,
 
 // Single blog detail
 final blogDetailProvider = FutureProvider.family<Blog?, String>((ref, blogId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
   final data = await SupabaseConfig.client
       .from('blogs')
       .select('*, profiles!author_id(full_name, avatar_url)')
@@ -56,6 +66,9 @@ final blogDetailProvider = FutureProvider.family<Blog?, String>((ref, blogId) as
 
 // My blogs (author's own)
 final myBlogsProvider = FutureProvider<List<Blog>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final userId = SupabaseConfig.currentUserId;
   if (userId == null) return [];
   final data = await SupabaseConfig.client
@@ -68,6 +81,9 @@ final myBlogsProvider = FutureProvider<List<Blog>>((ref) async {
 
 // Check if user liked a blog
 final blogLikeProvider = FutureProvider.family<bool, String>((ref, blogId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return false;
+
   final userId = SupabaseConfig.currentUserId;
   if (userId == null) return false;
   final data = await SupabaseConfig.client

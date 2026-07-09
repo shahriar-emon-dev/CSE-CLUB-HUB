@@ -5,8 +5,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/notice.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final galleryAlbumsProvider = FutureProvider<List<GalleryAlbum>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final data = await SupabaseConfig.client
       .from('gallery_albums')
       .select()

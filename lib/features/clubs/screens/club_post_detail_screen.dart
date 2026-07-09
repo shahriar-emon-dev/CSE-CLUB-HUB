@@ -51,7 +51,7 @@ class _ClubPostDetailScreenState extends ConsumerState<ClubPostDetailScreen> {
     final commentsAsync = ref.watch(clubPostCommentsProvider(widget.postId));
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: const Color(0xFF0D0D14),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: ClipRect(
@@ -79,12 +79,40 @@ class _ClubPostDetailScreenState extends ConsumerState<ClubPostDetailScreen> {
           ),
         ),
       ),
-      body: postAsync.when(
-        data: (post) => _buildBody(post, commentsAsync),
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (e, st) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+      body: Stack(
+        children: [
+          Positioned(
+            top: -100, right: -100,
+            child: Container(
+              width: 500, height: 500,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+              ),
+              child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120), child: Container(color: Colors.transparent)),
+            ),
+          ),
+          Positioned(
+            bottom: -100, left: -100,
+            child: Container(
+              width: 400, height: 400,
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+              ),
+              child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100), child: Container(color: Colors.transparent)),
+            ),
+          ),
+          postAsync.when(
+            data: (post) => _buildBody(post, commentsAsync),
+            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            error: (e, st) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+          ),
+        ],
       ),
-      bottomNavigationBar: _buildStickyCommentInput(),
+      bottomNavigationBar: SafeArea(
+        child: _buildStickyCommentInput(),
+      ),
     );
   }
 

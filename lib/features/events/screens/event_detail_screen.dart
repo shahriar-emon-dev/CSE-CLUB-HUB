@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/event.dart';
+import '../../../models/club_post.dart';
 import '../providers/events_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/providers/home_feed_provider.dart';
+import '../../clubs/providers/club_posts_provider.dart';
 
 class EventDetailScreen extends ConsumerStatefulWidget {
   final String eventId;
@@ -18,9 +22,26 @@ class EventDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+  final TextEditingController _commentController = TextEditingController();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  void _submitComment() {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+    ref.read(clubPostActionsNotifierProvider.notifier).addComment(widget.eventId, text);
+    _commentController.clear();
+    FocusScope.of(context).unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final eventAsync = ref.watch(eventDetailProvider(widget.eventId));
+    final commentsAsync = ref.watch(clubPostCommentsProvider(widget.eventId));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D14),
@@ -38,7 +59,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildMainContent(event),
+                      _buildMainContent(event, commentsAsync),
                       const SizedBox(height: 100), // padding for bottom nav
                     ],
                   ),
@@ -47,6 +68,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             ],
           );
         },
+      ),
+      bottomNavigationBar: SafeArea(
+        child: _buildStickyCommentInput(),
       ),
     );
   }
@@ -81,7 +105,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.share, color: Colors.white),
-          onPressed: () {},
+          onPressed: () {
+            Share.share('Check out "${event.title}" on CSE Club Hub!');
+          },
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -178,7 +204,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     );
   }
 
-  Widget _buildMainContent(Event event) {
+  Widget _buildMainContent(Event event, AsyncValue<List<ClubPostComment>> commentsAsync) {
     final isDesktop = MediaQuery.of(context).size.width >= 768;
 
     if (isDesktop) {
@@ -193,6 +219,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 _buildInfoGrid(event),
                 const SizedBox(height: 32),
                 _buildDescription(event),
+                const SizedBox(height: 32),
+                _buildReactionsBar(event),
+                const SizedBox(height: 32),
+                _buildCommentsSection(commentsAsync),
               ],
             ),
           ),
@@ -217,6 +247,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         _buildDescription(event),
         const SizedBox(height: 32),
         _buildRSVPCard(event),
+        const SizedBox(height: 32),
+        _buildReactionsBar(event),
+        const SizedBox(height: 32),
+        _buildCommentsSection(commentsAsync),
       ],
     );
   }
@@ -439,6 +473,207 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
     ref.invalidate(eventsProvider);
     ref.invalidate(homeFeedProvider);
     ref.invalidate(clubEventsProvider);
+  }
+
+  Widget _buildReactionsBar(Event event) {
+    final reactionsAsync = ref.watch(itemReactionsProvider(widget.eventId));
+    final favCount = reactionsAsync.value?['favorite'] ?? 0;
+    final fireCount = reactionsAsync.value?['fire'] ?? 0;
+    final handCount = reactionsAsync.value?['pan_tool'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13131F).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildReactionButton(Icons.favorite, favCount, 'favorite'),
+          _buildReactionButton(Icons.local_fire_department, fireCount, 'fire'),
+          _buildReactionButton(Icons.pan_tool, handCount, 'pan_tool'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactionButton(IconData icon, int count, String type) {
+    return InkWell(
+      onTap: () {
+        ref.read(clubPostActionsNotifierProvider.notifier).toggleReaction(widget.eventId, type);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary, size: 24),
+            const SizedBox(width: 8),
+            Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentsSection(AsyncValue<List<ClubPostComment>> commentsAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Community Discussion', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            commentsAsync.maybeWhen(
+              data: (comments) => Text('${comments.length} comments', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
+              orElse: () => const SizedBox(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        commentsAsync.when(
+          data: (comments) {
+            if (comments.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF13131F).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text('No comments yet. Be the first to start the discussion!', style: TextStyle(color: AppColors.textSecondaryDark)),
+              );
+            }
+            return Column(
+              children: comments.map((comment) => _buildCommentItem(comment)).toList(),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          error: (e, st) => Text('Error loading comments', style: TextStyle(color: AppColors.error)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentItem(ClubPostComment comment) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13131F).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundImage: comment.authorAvatarUrl != null ? NetworkImage(comment.authorAvatarUrl!) : null,
+            child: comment.authorAvatarUrl == null ? const Icon(Icons.person, color: Colors.white) : null,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(comment.authorName ?? 'Unknown', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14)),
+                    if (comment.isExecutive) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('EXECUTIVE', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                    const Spacer(),
+                    Text(timeago.format(comment.createdAt), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(comment.content, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStickyCommentInput() {
+    final isLoading = ref.watch(clubPostActionsNotifierProvider).isLoading;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF13131F).withValues(alpha: 0.95),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 16,
+        left: 16,
+        right: 16,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Add a comment...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                    filled: true,
+                    fillColor: const Color(0xFF0D0D14),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(32),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(32),
+                      borderSide: const BorderSide(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              InkWell(
+                onTap: isLoading ? null : _submitComment,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 15,
+                      )
+                    ],
+                  ),
+                  child: isLoading
+                      ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                      : const Icon(Icons.send, color: Colors.black),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

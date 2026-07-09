@@ -2,12 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/unified_feed_item.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final homeFeedProvider = FutureProvider<List<UnifiedFeedItem>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final channelName = 'public:home_feed:${DateTime.now().millisecondsSinceEpoch}';
   
-  // Listen for changes on club_posts
-  final channel1 = SupabaseConfig.client.channel('${channelName}_posts')
+  final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -15,10 +18,6 @@ final homeFeedProvider = FutureProvider<List<UnifiedFeedItem>>((ref) async {
           callback: (payload) {
             ref.invalidateSelf();
           })
-      .subscribe();
-
-  // Listen for changes on events
-  final channel2 = SupabaseConfig.client.channel('${channelName}_events')
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -26,10 +25,6 @@ final homeFeedProvider = FutureProvider<List<UnifiedFeedItem>>((ref) async {
           callback: (payload) {
             ref.invalidateSelf();
           })
-      .subscribe();
-      
-  // Listen for reactions
-  final channel3 = SupabaseConfig.client.channel('${channelName}_reactions')
       .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -37,12 +32,24 @@ final homeFeedProvider = FutureProvider<List<UnifiedFeedItem>>((ref) async {
           callback: (payload) {
             ref.invalidateSelf();
           })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'event_rsvps',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'comments',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
       .subscribe();
 
   ref.onDispose(() {
-    SupabaseConfig.client.removeChannel(channel1);
-    SupabaseConfig.client.removeChannel(channel2);
-    SupabaseConfig.client.removeChannel(channel3);
+    SupabaseConfig.client.removeChannel(channel);
   });
 
   // Fetch the unified feed view
@@ -61,4 +68,60 @@ final homeFeedProvider = FutureProvider<List<UnifiedFeedItem>>((ref) async {
   });
 
   return feed;
+});
+
+final unifiedFeedItemProvider = FutureProvider.family<UnifiedFeedItem, String>((ref, itemId) async {
+  final session = await ref.watch(authSessionProvider.future);
+  if (session == null) throw Exception('Unauthenticated');
+
+  final channelName = 'public:unified_feed_item:$itemId:${DateTime.now().millisecondsSinceEpoch}';
+  
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'club_posts',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: itemId),
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: itemId),
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'club_post_reactions',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'post_id', value: itemId),
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'comments',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'entity_id', value: itemId),
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
+  final data = await SupabaseConfig.client
+      .from('unified_feed_timeline')
+      .select()
+      .eq('id', itemId)
+      .maybeSingle();
+
+  if (data == null) throw Exception('Item not found');
+
+  return UnifiedFeedItem.fromJson(data);
 });

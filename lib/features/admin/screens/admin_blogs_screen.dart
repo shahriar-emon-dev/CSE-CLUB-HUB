@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/blog.dart';
+import '../providers/admin_providers.dart';
 
 final pendingBlogsProvider = FutureProvider<List<Blog>>((ref) async {
   final data = await SupabaseConfig.client
@@ -28,6 +28,7 @@ class AdminBlogsScreen extends ConsumerWidget {
       'published_at': DateTime.now().toIso8601String(),
     }).eq('id', blog.id);
     ref.invalidate(pendingBlogsProvider);
+    ref.invalidate(dashboardStatsProvider);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Blog approved and published!'), backgroundColor: AppColors.success),
@@ -64,6 +65,7 @@ class AdminBlogsScreen extends ConsumerWidget {
         'rejection_note': reason,
       }).eq('id', blog.id);
       ref.invalidate(pendingBlogsProvider);
+      ref.invalidate(dashboardStatsProvider);
     }
   }
 
@@ -71,92 +73,129 @@ class AdminBlogsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final blogsAsync = ref.watch(pendingBlogsProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.bgDark,
-      appBar: AppBar(title: const Text(AppStrings.manageBlogs)),
-      body: blogsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (blogs) {
-          if (blogs.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle_outline, size: 64, color: AppColors.success),
-                  SizedBox(height: 16),
-                  Text('No pending blogs!', style: TextStyle(color: AppColors.textSecondaryDark)),
-                ],
-              ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: blogs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (_, i) {
-              final blog = blogs[i];
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('Pending', style: TextStyle(color: AppColors.warning, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ),
-                        const Spacer(),
-                        Text(DateFormat('MMM d, y').format(blog.createdAt), style: Theme.of(context).textTheme.bodySmall),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(blog.title, style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text('By ${blog.authorName ?? 'Unknown'} · ${blog.category.displayName}', style: Theme.of(context).textTheme.bodySmall),
-                    if (blog.excerpt != null) ...[
-                      const SizedBox(height: 8),
-                      Text(blog.excerpt!, style: Theme.of(context).textTheme.bodyMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(context),
+          const SizedBox(height: 32),
+          blogsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(48.0),
+              child: Center(child: CircularProgressIndicator(color: AppColors.tertiary)),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(48.0),
+              child: Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
+            ),
+            data: (blogs) {
+              if (blogs.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 64),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF13131F).withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 64, color: AppColors.success),
+                      SizedBox(height: 16),
+                      Text('Queue is Clear', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 8),
+                      Text('No pending blog submissions awaiting administrative review.', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 16)),
                     ],
-                    const SizedBox(height: 14),
-                    Row(
+                  ),
+                );
+              }
+              return Column(
+                children: blogs.map((blog) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF13131F).withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.05), blurRadius: 15)],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _approve(context, ref, blog),
-                            icon: const Icon(Icons.check, size: 16),
-                            label: const Text(AppStrings.approve),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _reject(context, ref, blog),
-                            icon: const Icon(Icons.close, size: 16),
-                            label: const Text(AppStrings.reject),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              side: const BorderSide(color: AppColors.error),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                              child: const Text('PENDING REVIEW', style: TextStyle(color: AppColors.warning, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                             ),
-                          ),
+                            const Spacer(),
+                            Text(DateFormat('MMM d, y').format(blog.createdAt), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(blog.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Text('By ${blog.authorName ?? 'Unknown Member'} · ${blog.category.displayName}', style: const TextStyle(color: AppColors.tertiary, fontSize: 14, fontWeight: FontWeight.w600)),
+                        if (blog.excerpt != null) ...[
+                          const SizedBox(height: 12),
+                          Text(blog.excerpt!, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14), maxLines: 3, overflow: TextOverflow.ellipsis),
+                        ],
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _approve(context, ref, blog),
+                                icon: const Icon(Icons.check, size: 18),
+                                label: const Text('Approve & Publish'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _reject(context, ref, blog),
+                                icon: const Icon(Icons.close, size: 18),
+                                label: const Text('Reject Submission'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.error,
+                                  side: const BorderSide(color: AppColors.error),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                }).toList(),
               );
             },
-          );
-        },
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text('SYSTEM ADMINISTRATION', style: TextStyle(color: AppColors.tertiary, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        Text('Club Blog Moderation', style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold, letterSpacing: -1.5)),
+      ],
     );
   }
 }

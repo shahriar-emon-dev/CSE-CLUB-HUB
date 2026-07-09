@@ -1,9 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/event.dart';
+import '../../auth/providers/auth_provider.dart';
 
 // All published events
 final eventsProvider = FutureProvider<List<Event>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final channelName = 'public:events:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'event_rsvps',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final data = await SupabaseConfig.client
       .from('event_list_view')
       .select()
@@ -15,6 +42,31 @@ final eventsProvider = FutureProvider<List<Event>>((ref) async {
 
 // Club specific events
 final clubEventsProvider = FutureProvider.family<List<Event>, String>((ref, clubId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final channelName = 'public:club_events:$clubId:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'event_rsvps',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final data = await SupabaseConfig.client
       .from('event_list_view')
       .select()
@@ -27,6 +79,31 @@ final clubEventsProvider = FutureProvider.family<List<Event>, String>((ref, club
 
 // Single event detail
 final eventDetailProvider = FutureProvider.family<Event?, String>((ref, eventId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
+  final channelName = 'public:event_detail:$eventId:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'event_rsvps',
+          callback: (payload) {
+            ref.invalidateSelf();
+          })
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final data = await SupabaseConfig.client
       .from('event_list_view')
       .select()

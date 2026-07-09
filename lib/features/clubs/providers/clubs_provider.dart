@@ -2,7 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/club.dart';
 import '../../../models/club_executive.dart';
+import '../../auth/providers/auth_provider.dart';
+
 final clubsProvider = FutureProvider<List<Club>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final data = await SupabaseConfig.client
       .from('club_list_view')
       .select()
@@ -10,15 +15,29 @@ final clubsProvider = FutureProvider<List<Club>>((ref) async {
   return data.map((e) => Club.fromJson(e)).toList();
 });
 
-final clubDetailProvider = FutureProvider.family<Club?, String>((ref, clubSlug) async {
-  final data = await SupabaseConfig.client
+final clubDetailProvider = FutureProvider.family<Club?, String>((ref, clubSlugOrId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
+  var data = await SupabaseConfig.client
       .from('club_list_view')
       .select()
-      .eq('slug', clubSlug);
+      .eq('slug', clubSlugOrId);
+
+  if (data.isEmpty) {
+    data = await SupabaseConfig.client
+        .from('club_list_view')
+        .select()
+        .eq('id', clubSlugOrId);
+  }
+
   return data.isNotEmpty ? Club.fromJson(data.first) : null;
 });
 
 final clubExecutivesProvider = FutureProvider.family<List<ClubExecutive>, String>((ref, clubId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final response = await SupabaseConfig.client
       .from('club_executives_view')
       .select()

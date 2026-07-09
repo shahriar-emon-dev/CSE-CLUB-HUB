@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/app_colors.dart';
+import '../router/app_router.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
 class RoleBasedDrawer extends ConsumerWidget {
@@ -135,7 +136,7 @@ class RoleBasedDrawer extends ConsumerWidget {
                 title: const Text('Settings', style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
-                  // Handle settings
+                  context.push(AppRoutes.editProfile);
                 },
               ),
               ListTile(

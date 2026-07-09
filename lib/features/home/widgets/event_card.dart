@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/unified_feed_item.dart';
+import '../../clubs/providers/club_posts_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'post_actions_bottom_sheet.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-class EventCard extends StatelessWidget {
+class EventCard extends ConsumerWidget {
   final UnifiedFeedItem item;
   final bool showActions;
 
@@ -17,7 +19,7 @@ class EventCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => context.push('/events/${item.id}'),
       child: Container(
@@ -162,9 +164,17 @@ class EventCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _buildInteraction(Icons.favorite_border, item.favoriteCount.toString()),
+                  _buildInteraction(
+                    Icons.favorite_border,
+                    item.favoriteCount.toString(),
+                    onTap: () => ref.read(clubPostActionsNotifierProvider.notifier).toggleReaction(item.id, 'favorite'),
+                  ),
                   const SizedBox(width: 16),
-                  _buildInteraction(Icons.chat_bubble_outline, item.commentCount.toString()),
+                  _buildInteraction(
+                    Icons.chat_bubble_outline,
+                    item.commentCount.toString(),
+                    onTap: () => context.push('/events/${item.id}'),
+                  ),
                 ],
               ),
               if (item.capacity != null)
@@ -183,13 +193,20 @@ class EventCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInteraction(IconData icon, String count) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.textSecondaryDark, size: 18),
-        const SizedBox(width: 4),
-        Text(count, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
-      ],
+  Widget _buildInteraction(IconData icon, String count, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.textSecondaryDark, size: 18),
+            const SizedBox(width: 4),
+            Text(count, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
+          ],
+        ),
+      ),
     );
   }
 }

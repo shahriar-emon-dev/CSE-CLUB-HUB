@@ -6,8 +6,12 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/notice.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final noticesProvider = FutureProvider<List<Notice>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final channelName = 'public:notices:${DateTime.now().millisecondsSinceEpoch}';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(

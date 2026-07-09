@@ -9,6 +9,12 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return SupabaseConfig.client.auth.onAuthStateChange.map((event) => event.session?.user);
 });
 
+/// StreamProvider that listens to the raw Supabase Session (specifically the access token).
+/// Data providers should watch this to automatically invalidate and re-fetch when the JWT refreshes.
+final authSessionProvider = StreamProvider<String?>((ref) {
+  return SupabaseConfig.client.auth.onAuthStateChange.map((event) => event.session?.accessToken);
+});
+
 /// FutureProvider that fetches the [UserProfile] data for the currently authenticated user
 /// from the public.profiles table in Supabase.
 final currentProfileProvider = FutureProvider<UserProfile?>((ref) async {

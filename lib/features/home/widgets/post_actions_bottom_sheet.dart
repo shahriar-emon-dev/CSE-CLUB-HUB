@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/supabase_config.dart';
+import '../providers/home_feed_provider.dart';
 import 'delete_confirmation_dialog.dart';
 
 Future<void> showPostActions(BuildContext context, {required String postId}) {
@@ -13,13 +16,39 @@ Future<void> showPostActions(BuildContext context, {required String postId}) {
   );
 }
 
-class PostActionsBottomSheet extends StatelessWidget {
+class PostActionsBottomSheet extends ConsumerWidget {
   final String postId;
 
   const PostActionsBottomSheet({super.key, required this.postId});
 
+  Future<void> _deletePost(BuildContext context, WidgetRef ref) async {
+    context.pop();
+    final deleted = await showDeleteConfirmation(context);
+    if (deleted != true || !context.mounted) return;
+
+    try {
+      await SupabaseConfig.client.from('club_posts').delete().eq('id', postId);
+      ref.invalidate(homeFeedProvider);
+      ref.invalidate(unifiedFeedItemProvider(postId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post deleted successfully'), backgroundColor: AppColors.primary),
+        );
+        if (GoRouter.of(context).canPop()) {
+          context.pop();
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete post: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
       child: Container(
@@ -38,69 +67,41 @@ class PostActionsBottomSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
             Container(
-              width: 48, height: 4,
+              width: 48,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 24),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-
-            // Header
             Align(
               alignment: Alignment.centerLeft,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  Text('Post Actions Menu', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                  Text(
+                    'Post Actions',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                  ),
                   SizedBox(height: 4),
-                  Text('Manage your post in DevStudio', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
+                  Text('Manage this broadcast post', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-
-            // Edit Action
-            _buildActionItem(
-              context: context,
-              icon: Icons.edit,
-              title: 'Edit Post',
-              color: AppColors.primary,
-              onTap: () {
-                context.pop();
-                // Navigate to edit screen if needed
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Delete Action
             _buildActionItem(
               context: context,
               icon: Icons.delete,
               title: 'Delete Post',
               color: AppColors.error,
               isError: true,
-              onTap: () async {
-                context.pop();
-                final bool? deleted = await showDeleteConfirmation(context);
-                if (deleted == true) {
-                  // Perform delete and show snackbar or pop
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Post deleted successfully'), backgroundColor: AppColors.primary),
-                    );
-                  }
-                }
-              },
+              onTap: () => _deletePost(context, ref),
             ),
-
             const SizedBox(height: 16),
             Divider(color: Colors.white.withValues(alpha: 0.1)),
             const SizedBox(height: 16),
-
-            // Cancel Action
             SizedBox(
               width: double.infinity,
               child: TextButton(
@@ -110,7 +111,10 @@ class PostActionsBottomSheet extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 18, fontWeight: FontWeight.w500)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 18, fontWeight: FontWeight.w500),
+                ),
               ),
             ),
           ],
@@ -142,7 +146,8 @@ class PostActionsBottomSheet extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40, height: 40,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),

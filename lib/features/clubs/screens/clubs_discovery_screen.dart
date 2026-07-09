@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/router/app_router.dart';
 
 import '../providers/clubs_provider.dart';
 import '../../../../models/club.dart';
@@ -22,7 +23,7 @@ class ClubsDiscoveryScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(),
+            _buildAppBar(context),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -53,7 +54,7 @@ class ClubsDiscoveryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context) {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -73,11 +74,11 @@ class ClubsDiscoveryScreen extends ConsumerWidget {
           ),
           Row(
             children: [
-              IconButton(icon: const Icon(Icons.search, color: AppColors.textSecondaryDark), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.search, color: AppColors.textSecondaryDark), onPressed: () => context.push(AppRoutes.search)),
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  IconButton(icon: const Icon(Icons.notifications, color: AppColors.textSecondaryDark), onPressed: () {}),
+                  IconButton(icon: const Icon(Icons.notifications, color: AppColors.textSecondaryDark), onPressed: () => context.push(AppRoutes.notifications)),
                   Positioned(
                     top: 12, right: 12,
                     child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),

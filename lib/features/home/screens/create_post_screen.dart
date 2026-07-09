@@ -53,14 +53,6 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           setState(() {
             _selectedClubId = res['club_id'] as String;
           });
-        } else if (mounted) {
-          // EMERGENCY FALLBACK for testing: If the test account is literally an executive of NO club, assign them to the first club so they can test the button
-          final fallback = await SupabaseConfig.client.from('clubs').select('id').limit(1).maybeSingle();
-          if (fallback != null && mounted) {
-            setState(() {
-              _selectedClubId = fallback['id'] as String;
-            });
-          }
         }
       } catch (e) {
         // ignore

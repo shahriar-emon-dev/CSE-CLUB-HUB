@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../repositories/admin_repository.dart';
+import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
 import '../../../models/system_activity.dart';
 import '../../../models/content_report.dart';
 import '../../clubs/providers/clubs_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 // Provides the Supabase Client (assuming it's a singleton here or could be retrieved from a core provider)
 final supabaseClientProvider = Provider<SupabaseClient>((ref) => Supabase.instance.client);
@@ -19,24 +21,57 @@ class DashboardStats {
   final int totalStudents;
   final int activeClubs;
   final int totalEvents;
+  final int pendingReports;
 
   DashboardStats({
     required this.totalStudents,
     required this.activeClubs,
     required this.totalEvents,
+    required this.pendingReports,
   });
 }
 
 // Provider for Dashboard Stats
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return DashboardStats(totalStudents: 0, activeClubs: 0, totalEvents: 0, pendingReports: 0);
+
+  final channelName = 'public:dashboard_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'profiles',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'clubs',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'content_reports',
+          callback: (payload) => ref.invalidateSelf())
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final repo = ref.watch(adminRepositoryProvider);
-  
   final stats = await repo.getPlatformStatistics();
   
   return DashboardStats(
-    totalStudents: stats['total_students'] as int,
-    activeClubs: stats['active_clubs'] as int,
-    totalEvents: stats['total_events'] as int,
+    totalStudents: (stats['total_students'] ?? 0) as int,
+    activeClubs: (stats['active_clubs'] ?? 0) as int,
+    totalEvents: (stats['total_events'] ?? 0) as int,
+    pendingReports: (stats['pending_reports'] ?? 0) as int,
   );
 });
 
@@ -57,14 +92,34 @@ class MemberStats {
 
 // Provider for Member Stats
 final memberStatsProvider = FutureProvider<MemberStats>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return MemberStats(totalMembers: 0, activeNow: 0, executives: 0, pendingSync: 0);
+
+  final channelName = 'public:member_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'profiles',
+          callback: (payload) => ref.invalidateSelf())
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'clubs',
+          callback: (payload) => ref.invalidateSelf())
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final repo = ref.watch(adminRepositoryProvider);
-  
   final stats = await repo.getPlatformStatistics();
   
   return MemberStats(
-    totalMembers: stats['total_students'] as int,
-    activeNow: stats['active_members'] as int, // Using active members for 'Active Now'
-    executives: stats['total_executives'] as int,
+    totalMembers: (stats['total_students'] ?? 0) as int,
+    activeNow: (stats['active_members'] ?? 0) as int, // Using active members for 'Active Now'
+    executives: (stats['total_executives'] ?? 0) as int,
     pendingSync: 0,
   );
 });
@@ -80,6 +135,9 @@ final memberSearchQueryProvider = StateProvider<String>((ref) => '');
 
 // Paginated User Profiles Provider
 final paginatedUsersProvider = FutureProvider<List<UserProfile>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final repo = ref.watch(adminRepositoryProvider);
   final searchQuery = ref.watch(memberSearchQueryProvider);
   
@@ -100,7 +158,9 @@ class AdminActionNotifier extends StateNotifier<AsyncValue<void>> {
       await _repository.promoteToExecutive(userId, clubId, roleTitle);
       // Invalidate the users list so it refreshes
       _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(dashboardStatsProvider);
       _ref.invalidate(memberStatsProvider);
+      _ref.invalidate(moderationStatsProvider);
       _ref.invalidate(clubExecutivesProvider(clubId));
       state = const AsyncValue.data(null);
     } catch (e, st) {
@@ -114,7 +174,9 @@ class AdminActionNotifier extends StateNotifier<AsyncValue<void>> {
       await _repository.revokeExecutive(userId);
       // Invalidate the users list so it refreshes
       _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(dashboardStatsProvider);
       _ref.invalidate(memberStatsProvider);
+      _ref.invalidate(moderationStatsProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -125,8 +187,9 @@ class AdminActionNotifier extends StateNotifier<AsyncValue<void>> {
 // StateNotifier for Creating Clubs
 class CreateClubNotifier extends StateNotifier<AsyncValue<void>> {
   final AdminRepository _repository;
+  final Ref _ref;
   
-  CreateClubNotifier(this._repository) : super(const AsyncValue.data(null));
+  CreateClubNotifier(this._repository, this._ref) : super(const AsyncValue.data(null));
 
   Future<void> createClub({
     required String name,
@@ -148,6 +211,9 @@ class CreateClubNotifier extends StateNotifier<AsyncValue<void>> {
         logoFile: logoFile,
         coverFile: coverFile,
       );
+      _ref.invalidate(dashboardStatsProvider);
+      _ref.invalidate(memberStatsProvider);
+      _ref.invalidate(clubsProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -156,7 +222,7 @@ class CreateClubNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 final createClubNotifierProvider = StateNotifierProvider<CreateClubNotifier, AsyncValue<void>>((ref) {
-  return CreateClubNotifier(ref.watch(adminRepositoryProvider));
+  return CreateClubNotifier(ref.watch(adminRepositoryProvider), ref);
 });
 
 final adminActionProvider = StateNotifierProvider<AdminActionNotifier, AsyncValue<void>>((ref) {
@@ -167,6 +233,22 @@ final adminActionProvider = StateNotifierProvider<AdminActionNotifier, AsyncValu
 
 // Provider for top stats bar
 final moderationStatsProvider = FutureProvider<Map<String, int>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return {};
+
+  final channelName = 'public:mod_stats:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'content_reports',
+          callback: (payload) => ref.invalidateSelf())
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final repo = ref.watch(adminRepositoryProvider);
   return await repo.getModerationStats();
 });
@@ -176,6 +258,22 @@ final moderationFilterProvider = StateProvider<String>((ref) => 'All');
 
 // Provider for the moderation queue list
 final contentReportsProvider = FutureProvider<List<ContentReport>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
+  final channelName = 'public:content_reports:${DateTime.now().millisecondsSinceEpoch}';
+  final channel = SupabaseConfig.client.channel(channelName)
+      .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'content_reports',
+          callback: (payload) => ref.invalidateSelf())
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
   final repo = ref.watch(adminRepositoryProvider);
   final filter = ref.watch(moderationFilterProvider);
   return await repo.getContentReports(filterType: filter);
@@ -195,6 +293,7 @@ class ModerationActionNotifier extends StateNotifier<AsyncValue<void>> {
       // Invalidate the queue list and stats
       _ref.invalidate(contentReportsProvider);
       _ref.invalidate(moderationStatsProvider);
+      _ref.invalidate(dashboardStatsProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -204,5 +303,36 @@ class ModerationActionNotifier extends StateNotifier<AsyncValue<void>> {
 
 final moderationActionProvider = StateNotifierProvider<ModerationActionNotifier, AsyncValue<void>>((ref) {
   return ModerationActionNotifier(ref.watch(adminRepositoryProvider), ref);
+});
+
+// System Settings Provider
+final systemSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return {};
+
+  final repo = ref.watch(adminRepositoryProvider);
+  return await repo.getSystemSettings();
+});
+
+class SystemSettingsNotifier extends StateNotifier<AsyncValue<void>> {
+  final AdminRepository _repository;
+  final Ref _ref;
+
+  SystemSettingsNotifier(this._repository, this._ref) : super(const AsyncValue.data(null));
+
+  Future<void> updateSetting(String key, Map<String, dynamic> value) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.updateSystemSetting(key, value);
+      _ref.invalidate(systemSettingsProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+final systemSettingsActionProvider = StateNotifierProvider<SystemSettingsNotifier, AsyncValue<void>>((ref) {
+  return SystemSettingsNotifier(ref.watch(adminRepositoryProvider), ref);
 });
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/router/app_router.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/events_provider.dart';
 import '../../../models/event.dart';
@@ -90,7 +91,7 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
               Text('ClubHub', style: TextStyle(color: AppColors.primary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
             ],
           ),
-          IconButton(icon: const Icon(Icons.notifications, color: AppColors.textSecondaryDark), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.notifications, color: AppColors.textSecondaryDark), onPressed: () => context.push(AppRoutes.notifications)),
         ],
       ),
     ).wrapWithBlur(20);
@@ -487,10 +488,13 @@ class TicketClipper extends CustomClipper<Path> {
 }
 
 extension _BlurExtension on Widget {
-  Widget wrapWithBlur(double sigma) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-      child: this,
+  Widget wrapWithBlur(double sigma, [double radius = 16.0]) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: this,
+      ),
     );
   }
 }

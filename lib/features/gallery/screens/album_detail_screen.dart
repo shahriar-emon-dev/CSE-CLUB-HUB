@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/notice.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final albumPhotosProvider = FutureProvider.family<List<GalleryPhoto>, String>((ref, albumId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final data = await SupabaseConfig.client
       .from('gallery_photos')
       .select()
@@ -14,6 +18,9 @@ final albumPhotosProvider = FutureProvider.family<List<GalleryPhoto>, String>((r
 });
 
 final albumProvider = FutureProvider.family<GalleryAlbum?, String>((ref, albumId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
   final data = await SupabaseConfig.client
       .from('gallery_albums')
       .select()

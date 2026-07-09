@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -13,6 +15,9 @@ import '../../events/providers/events_provider.dart';
 import '../../../models/club.dart';
 import '../../../models/event.dart';
 final profileProvider = FutureProvider.family<UserProfile?, String?>((ref, userId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
   final id = userId ?? SupabaseConfig.currentUserId;
   if (id == null) return null;
   final data = await SupabaseConfig.client
@@ -237,7 +242,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textSecondaryDark),
-            onPressed: () {},
+            onPressed: () => context.push(AppRoutes.notifications),
           ),
           const SizedBox(width: 8),
         ],
@@ -351,7 +356,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           foregroundColor: Colors.white,
                         ),
-                        onPressed: () {},
+                        onPressed: () => context.push(AppRoutes.editProfile),
                         child: const Icon(Icons.settings),
                       ),
                     ),

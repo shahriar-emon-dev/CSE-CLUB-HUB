@@ -4,8 +4,12 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/forum.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final threadDetailProvider = FutureProvider.family<ForumThread?, String>((ref, threadId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+
   final data = await SupabaseConfig.client
       .from('forum_threads')
       .select('*, profiles!author_id(full_name, avatar_url), forum_categories(name)')
@@ -20,6 +24,9 @@ final threadDetailProvider = FutureProvider.family<ForumThread?, String>((ref, t
 });
 
 final threadPostsProvider = FutureProvider.family<List<ForumPost>, String>((ref, threadId) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final data = await SupabaseConfig.client
       .from('forum_posts')
       .select('*, profiles!author_id(full_name, avatar_url)')

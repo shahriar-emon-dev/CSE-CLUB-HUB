@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
+import '../router/app_router.dart';
 
 /// Background message handler for Firebase Cloud Messaging.
 /// 
@@ -98,6 +100,22 @@ class PushNotificationService {
       }
     });
 
+    // 5. Handle clicks when the app is in the background
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('A new onMessageOpenedApp event was published!');
+      _handleNotificationClick(message);
+    });
+
+    // 6. Handle clicks when the app is terminated
+    RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+    if (initialMessage != null) {
+      debugPrint('App opened from terminated state via notification');
+      // Delay slightly to ensure GoRouter is fully initialized
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _handleNotificationClick(initialMessage);
+      });
+    }
+
     // 5. Get FCM Token and save to Supabase
     String? token;
     if (kIsWeb) {
@@ -115,6 +133,25 @@ class PushNotificationService {
     _fcm.onTokenRefresh.listen(_saveTokenToSupabase);
   }
 
+  /// Parses the RemoteMessage data payload and navigates using GoRouter
+  void _handleNotificationClick(RemoteMessage message) {
+    if (message.data.containsKey('type') && message.data.containsKey('reference_id')) {
+      final type = message.data['type'];
+      final refId = message.data['reference_id'];
+      
+      final context = rootNavigatorKey.currentContext;
+      if (context != null) {
+        if (type == 'new_post' || type == 'new_comment') {
+          GoRouter.of(context).push('/post/$refId');
+        } else if (type == 'new_event') {
+          GoRouter.of(context).push('/events/$refId');
+        } else if (type == 'new_notice') {
+          GoRouter.of(context).push('/notices');
+        }
+      }
+    }
+  }
+
   /// Saves the Firebase Cloud Messaging (FCM) device token to the user's profile
   /// in the Supabase database.
   /// 
@@ -124,9 +161,12 @@ class PushNotificationService {
     if (user != null) {
       try {
         await Supabase.instance.client
-            .from('profiles')
-            .update({'fcm_token': token})
-            .eq('id', user.id);
+            .from('fcm_tokens')
+            .upsert({
+              'user_id': user.id,
+              'token': token,
+              'updated_at': DateTime.now().toIso8601String(),
+            }, onConflict: 'token');
         debugPrint('FCM Token saved successfully');
       } catch (e) {
         debugPrint('Error saving FCM token: $e');

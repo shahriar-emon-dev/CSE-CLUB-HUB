@@ -6,8 +6,12 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/user_profile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final membersProvider = FutureProvider<List<UserProfile>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final channelName = 'public:profiles:${DateTime.now().millisecondsSinceEpoch}';
   final channel = SupabaseConfig.client.channel(channelName)
       .onPostgresChanges(

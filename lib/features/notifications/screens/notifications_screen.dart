@@ -1,12 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/forum.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../../core/router/app_router.dart';
+import '../../auth/providers/auth_provider.dart';
 
 final notificationsProvider = FutureProvider<List<AppNotification>>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return [];
+
   final userId = SupabaseConfig.currentUserId;
   if (userId == null) return [];
 
@@ -67,7 +74,7 @@ class NotificationsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: AppColors.textSecondaryDark),
-            onPressed: () {},
+            onPressed: () => context.push(AppRoutes.search),
           ),
           Stack(
             alignment: Alignment.center,
@@ -120,13 +127,18 @@ class NotificationsScreen extends ConsumerWidget {
           ),
 
           notifAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            loading: () => _buildShimmerLoading(),
             error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.error))),
             data: (notifications) {
               if (notifications.isEmpty) {
-                return _buildEmptyState();
+                return _buildEmptyState(context);
               }
-              return _buildListState(context, ref, notifications);
+              return RefreshIndicator(
+                color: AppColors.primary,
+                backgroundColor: AppColors.surfaceContainerDark,
+                onRefresh: () async => ref.refresh(notificationsProvider.future),
+                child: _buildListState(context, ref, notifications),
+              );
             },
           ),
         ],
@@ -134,7 +146,7 @@ class NotificationsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -207,7 +219,7 @@ class NotificationsScreen extends ConsumerWidget {
               ),
               icon: const Icon(Icons.explore, size: 20),
               label: const Text('Explore Clubs', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              onPressed: () {},
+              onPressed: () => context.go(AppRoutes.clubs),
             ),
           ],
         ),
@@ -232,6 +244,7 @@ class NotificationsScreen extends ConsumerWidget {
     final hasUnread = notifications.any((n) => !n.isRead);
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -302,6 +315,29 @@ class NotificationsScreen extends ConsumerWidget {
       ],
     );
   }
+
+  Widget _buildShimmerLoading() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      itemCount: 8,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Shimmer.fromColors(
+            baseColor: AppColors.surfaceVariantDark,
+            highlightColor: AppColors.surfaceContainerDark,
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariantDark,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _NotifTile extends StatelessWidget {
@@ -341,83 +377,100 @@ class _NotifTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        if (!notif.isRead) {
-          await SupabaseConfig.client.from('notifications')
-              .update({'is_read': true}).eq('id', notif.id);
-          ref.invalidate(notificationsProvider);
-        }
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
+    return Dismissible(
+      key: Key(notif.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: notif.isRead ? AppColors.surfaceContainerDark : AppColors.surfaceVariantDark.withValues(alpha: 0.3),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            bottomRight: Radius.circular(24),
-            topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(4),
-          ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-          boxShadow: notif.isRead ? [] : [BoxShadow(color: AppColors.primary.withValues(alpha: 0.15), blurRadius: 20)],
+          color: AppColors.error.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Stack(
-          children: [
-            if (!notif.isRead)
-              Positioned(
-                left: -20, top: -20, bottom: -20,
-                child: Container(width: 4, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-              ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(
-                    color: _color.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(_icon, color: _color),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              notif.title,
-                              style: TextStyle(color: notif.isRead ? Colors.white : AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          if (!notif.isRead)
-                            Container(
-                              width: 8, height: 8,
-                              margin: const EdgeInsets.only(top: 6, left: 8),
-                              decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary, blurRadius: 8)]),
-                            ),
-                        ],
-                      ),
-                      if (notif.body != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          notif.body!,
-                          style: TextStyle(color: notif.isRead ? AppColors.textSecondaryDark : Colors.white.withValues(alpha: 0.9), fontSize: 14),
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Text(_timeAgo(notif.createdAt), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) async {
+        await SupabaseConfig.client.from('notifications').delete().eq('id', notif.id);
+        ref.invalidate(notificationsProvider);
+      },
+      child: InkWell(
+        onTap: () async {
+          if (!notif.isRead) {
+            await SupabaseConfig.client.from('notifications')
+                .update({'is_read': true}).eq('id', notif.id);
+            ref.invalidate(notificationsProvider);
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: notif.isRead ? AppColors.surfaceContainerDark : AppColors.surfaceVariantDark.withValues(alpha: 0.3),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
+              topRight: Radius.circular(4),
+              bottomLeft: Radius.circular(4),
             ),
-          ],
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            boxShadow: notif.isRead ? [] : [BoxShadow(color: AppColors.primary.withValues(alpha: 0.15), blurRadius: 20)],
+          ),
+          child: Stack(
+            children: [
+              if (!notif.isRead)
+                Positioned(
+                  left: -20, top: -20, bottom: -20,
+                  child: Container(width: 4, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      color: _color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(_icon, color: _color),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                notif.title,
+                                style: TextStyle(color: notif.isRead ? Colors.white : AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ),
+                            if (!notif.isRead)
+                              Container(
+                                width: 8, height: 8,
+                                margin: const EdgeInsets.only(top: 6, left: 8),
+                                decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary, blurRadius: 8)]),
+                              ),
+                          ],
+                        ),
+                        if (notif.body != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            notif.body!,
+                            style: TextStyle(color: notif.isRead ? AppColors.textSecondaryDark : Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Text(_timeAgo(notif.createdAt), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
