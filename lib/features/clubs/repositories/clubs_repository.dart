@@ -15,7 +15,7 @@ class ClubsRepository {
     return SupabaseQueryHelper.runQuery('getClubs', () async {
       final data = await _client
           .from('club_list_view')
-          .select('id, name, slug, description, category, logo_url, cover_url, followers_count, status, brand_color, executive_names, upcoming_events_count')
+          .select()
           .order('name', ascending: true);
       return (data as List).map((e) => Club.fromJson(e)).toList();
     }, fallback: <Club>[]);
@@ -26,13 +26,13 @@ class ClubsRepository {
     return SupabaseQueryHelper.runQuery('getClubByIdOrSlug', () async {
       var data = await _client
           .from('club_list_view')
-          .select('id, name, slug, description, category, logo_url, cover_url, followers_count, status, brand_color, executive_names, upcoming_events_count')
+          .select()
           .eq('slug', clubSlugOrId);
 
       if (data.isEmpty) {
         data = await _client
             .from('club_list_view')
-            .select('id, name, slug, description, category, logo_url, cover_url, followers_count, status, brand_color, executive_names, upcoming_events_count')
+            .select()
             .eq('id', clubSlugOrId);
       }
 
@@ -45,7 +45,7 @@ class ClubsRepository {
     return SupabaseQueryHelper.runQuery('getClubExecutives', () async {
       final response = await _client
           .from('club_executives_view')
-          .select('id, club_id, user_id, role_title, is_active, full_name, avatar_url, student_id, department')
+          .select()
           .eq('club_id', clubId);
 
       return (response as List).map((e) => ClubExecutive.fromJson(e)).toList();

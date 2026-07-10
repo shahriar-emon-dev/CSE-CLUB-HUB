@@ -14,6 +14,9 @@ import '../../clubs/providers/clubs_provider.dart';
 import '../../events/providers/events_provider.dart';
 import '../../../models/club.dart';
 import '../../../models/event.dart';
+import '../widgets/executive_dashboard_view.dart';
+import '../widgets/user_dashboard_view.dart';
+
 final profileProvider = FutureProvider.family<UserProfile?, String?>((ref, userId) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return null;
@@ -364,6 +367,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
             ],
           ),
           const SizedBox(height: 40),
+          
+          // Role-Based Dashboards (Executive vs Standard User)
+          if (profile.isExecutive || profile.isAdmin || profile.isSuperAdmin)
+            ExecutiveDashboardView(profile: profile)
+          else
+            UserDashboardView(
+              profile: profile,
+              followedClubsCount: followedClubs.length,
+              rsvpsCount: myRsvps.length,
+            ),
           
           // Followed Clubs Horizontal Scroll
           Row(

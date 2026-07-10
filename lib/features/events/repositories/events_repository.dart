@@ -14,7 +14,7 @@ class EventsRepository {
     return SupabaseQueryHelper.runQuery('getPublishedEvents', () async {
       final data = await _client
           .from('event_list_view')
-          .select('id, title, description, category, venue, location, event_date, end_date, cover_image_url, capacity, organizing_club_id, organizing_club_name, is_published, is_cancelled, created_by, created_at')
+          .select()
           .eq('is_published', true)
           .order('event_date', ascending: true);
       return (data as List).map((e) => Event.fromJson(e)).toList();
@@ -26,7 +26,7 @@ class EventsRepository {
     return SupabaseQueryHelper.runQuery('getClubEvents', () async {
       final data = await _client
           .from('event_list_view')
-          .select('id, title, description, category, venue, location, event_date, end_date, cover_image_url, capacity, organizing_club_id, organizing_club_name, is_published, is_cancelled, created_by, created_at')
+          .select()
           .eq('organizing_club_id', clubId)
           .eq('is_published', true)
           .order('event_date', ascending: true);
@@ -39,7 +39,7 @@ class EventsRepository {
     return SupabaseQueryHelper.runQuery('getEventById', () async {
       final data = await _client
           .from('event_list_view')
-          .select('id, title, description, category, venue, location, event_date, end_date, cover_image_url, capacity, organizing_club_id, organizing_club_name, is_published, is_cancelled, created_by, created_at')
+          .select()
           .eq('id', eventId);
       return data.isNotEmpty ? Event.fromJson(data.first) : null;
     }, fallback: null);

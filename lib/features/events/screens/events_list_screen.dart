@@ -9,10 +9,209 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/events_provider.dart';
 import '../../../models/event.dart';
 
+enum EventFilterTab { all, upcoming, today, past, myHistory }
+
 final selectedDateProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
 });
+
+Future<void> showInteractiveCalendarModal(
+  BuildContext context, {
+  required DateTime initialDate,
+  required Set<DateTime> eventDates,
+  required Function(DateTime) onDateSelected,
+}) {
+  return showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) => _CalendarModalContent(
+      initialDate: initialDate,
+      eventDates: eventDates,
+      onDateSelected: onDateSelected,
+    ),
+  );
+}
+
+class _CalendarModalContent extends StatefulWidget {
+  final DateTime initialDate;
+  final Set<DateTime> eventDates;
+  final Function(DateTime) onDateSelected;
+
+  const _CalendarModalContent({
+    required this.initialDate,
+    required this.eventDates,
+    required this.onDateSelected,
+  });
+
+  @override
+  State<_CalendarModalContent> createState() => _CalendarModalContentState();
+}
+
+class _CalendarModalContentState extends State<_CalendarModalContent> {
+  late DateTime _focusedMonth;
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedMonth = DateTime(widget.initialDate.year, widget.initialDate.month, 1);
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final daysInMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
+    final weekdayOffset = (firstDayOfMonth.weekday % 7);
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerDark,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        border: const Border(top: BorderSide(color: Color(0x33FFFFFF))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 48,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: Colors.white),
+                onPressed: () {
+                  setState(() {
+                    _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+                  });
+                },
+              ),
+              Text(
+                DateFormat('MMMM yyyy').format(_focusedMonth),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _focusedMonth = DateTime(now.year, now.month, 1);
+                        _selectedDate = DateTime(now.year, now.month, now.day);
+                      });
+                      widget.onDateSelected(_selectedDate);
+                      Navigator.pop(context);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    child: const Text('Today', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, color: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) => 
+              SizedBox(
+                width: 38,
+                child: Center(
+                  child: Text(d, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ).toList(),
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: weekdayOffset + daysInMonth,
+            itemBuilder: (context, index) {
+              if (index < weekdayOffset) {
+                return const SizedBox.shrink();
+              }
+              final dayNum = index - weekdayOffset + 1;
+              final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
+              final isSelected = cellDate.year == _selectedDate.year && cellDate.month == _selectedDate.month && cellDate.day == _selectedDate.day;
+              final isToday = cellDate.year == now.year && cellDate.month == now.month && cellDate.day == now.day;
+              final hasEvent = widget.eventDates.any((e) => e.year == cellDate.year && e.month == cellDate.month && e.day == cellDate.day);
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedDate = cellDate);
+                  widget.onDateSelected(cellDate);
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : (isToday ? Colors.white.withValues(alpha: 0.1) : Colors.transparent),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$dayNum',
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFF1D100A) : Colors.white,
+                          fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (hasEvent) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF1D100A) : const Color(0xFFFF6A00),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+}
 
 class EventsListScreen extends ConsumerStatefulWidget {
   const EventsListScreen({super.key});
@@ -23,6 +222,9 @@ class EventsListScreen extends ConsumerStatefulWidget {
 
 class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   final ScrollController _dateStripController = ScrollController();
+  EventFilterTab _selectedTab = EventFilterTab.all;
+  bool _sortNewestFirst = true;
+  DateTime? _filterByDate;
 
   @override
   void dispose() {
@@ -31,7 +233,6 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   }
 
   List<DateTime> _getRollingWeek(DateTime anchor) {
-    // Show 3 days before and 3 days after the anchor date
     return List.generate(7, (index) => anchor.subtract(const Duration(days: 3)).add(Duration(days: index)));
   }
 
@@ -56,12 +257,15 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
             _buildAppBar(),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(left: 20, right: 20, top: 24, bottom: 100),
+                padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDateStrip(),
-                    const SizedBox(height: 32),
+                    _buildFilterTabsRow(),
+                    const SizedBox(height: 20),
+                    _buildAgendaHeader(),
+                    const SizedBox(height: 16),
+                    if (_filterByDate != null) _buildFilterDateBanner(),
                     _buildAgendaList(),
                   ],
                 ),
@@ -95,6 +299,178 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
         ],
       ),
     ).wrapWithBlur(20);
+  }
+
+  Widget _buildFilterTabsRow() {
+    final tabs = [
+      ('All', EventFilterTab.all),
+      ('Upcoming', EventFilterTab.upcoming),
+      ('Today', EventFilterTab.today),
+      ('Past', EventFilterTab.past),
+      ('My History', EventFilterTab.myHistory),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: tabs.map((tab) {
+          final isSelected = _selectedTab == tab.$2 && _filterByDate == null;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedTab = tab.$2;
+                  if (tab.$2 == EventFilterTab.today) {
+                    final now = DateTime.now();
+                    _filterByDate = DateTime(now.year, now.month, now.day);
+                  } else {
+                    _filterByDate = null;
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Text(
+                  tab.$1,
+                  style: TextStyle(
+                    color: isSelected ? const Color(0xFF1D100A) : Colors.white,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAgendaHeader() {
+    final eventsAsync = ref.watch(eventsProvider);
+    final allEvents = eventsAsync.valueOrNull ?? [];
+    final eventDates = allEvents.map((e) => DateTime(e.eventDate.year, e.eventDate.month, e.eventDate.day)).toSet();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Events Agenda',
+          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+        ),
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _sortNewestFirst = !_sortNewestFirst;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sort, color: AppColors.primary, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _sortNewestFirst ? 'Newest' : 'Oldest',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                showInteractiveCalendarModal(
+                  context,
+                  initialDate: _filterByDate ?? DateTime.now(),
+                  eventDates: eventDates,
+                  onDateSelected: (date) {
+                    setState(() {
+                      _filterByDate = date;
+                      ref.read(selectedDateProvider.notifier).state = date;
+                    });
+                  },
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _filterByDate != null ? AppColors.primary.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _filterByDate != null ? AppColors.primary : Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.calendar_month, color: AppColors.primary, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Calendar',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterDateBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.filter_alt, color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Showing events for ${DateFormat('MMM d, yyyy').format(_filterByDate!)}',
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          InkWell(
+            onTap: () => setState(() => _filterByDate = null),
+            child: const Padding(
+              padding: EdgeInsets.all(4.0),
+              child: Icon(Icons.close, color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDateStrip() {
@@ -133,13 +509,16 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
     final dayNum = DateFormat('d').format(date);
 
     return GestureDetector(
-      onTap: () => ref.read(selectedDateProvider.notifier).state = date,
+      onTap: () {
+        ref.read(selectedDateProvider.notifier).state = date;
+        setState(() => _filterByDate = date);
+      },
       child: Container(
         margin: const EdgeInsets.only(right: 8),
         width: 56,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6A00) : Colors.transparent, // primary-container
+          color: isSelected ? const Color(0xFFFF6A00) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFFF6A00).withValues(alpha: 0.15), blurRadius: 20)] : null,
         ),
@@ -171,16 +550,42 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
   Widget _buildAgendaList() {
     final eventsAsync = ref.watch(eventsProvider);
     final rsvpsAsync = ref.watch(myAllRsvpsProvider);
-    final selectedDate = ref.watch(selectedDateProvider);
 
     return eventsAsync.when(
       data: (events) {
-        // Filter events by selected date
-        final filteredEvents = events.where((e) {
-          return e.eventDate.year == selectedDate.year &&
-                 e.eventDate.month == selectedDate.month &&
-                 e.eventDate.day == selectedDate.day;
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final rsvps = rsvpsAsync.valueOrNull ?? {};
+
+        List<Event> filteredEvents = events.where((e) {
+          if (_filterByDate != null) {
+            return e.eventDate.year == _filterByDate!.year &&
+                   e.eventDate.month == _filterByDate!.month &&
+                   e.eventDate.day == _filterByDate!.day;
+          }
+          switch (_selectedTab) {
+            case EventFilterTab.all:
+              return true;
+            case EventFilterTab.upcoming:
+              return e.eventDate.isAfter(today) || (e.eventDate.year == today.year && e.eventDate.month == today.month && e.eventDate.day == today.day);
+            case EventFilterTab.today:
+              return e.eventDate.year == today.year && e.eventDate.month == today.month && e.eventDate.day == today.day;
+            case EventFilterTab.past:
+              return e.eventDate.isBefore(today);
+            case EventFilterTab.myHistory:
+              final st = rsvps[e.id];
+              return st == RsvpStatus.confirmed;
+          }
         }).toList();
+
+        // Sort
+        filteredEvents.sort((a, b) {
+          if (_sortNewestFirst) {
+            return b.eventDate.compareTo(a.eventDate);
+          } else {
+            return a.eventDate.compareTo(b.eventDate);
+          }
+        });
 
         if (filteredEvents.isEmpty) {
           return Center(
@@ -190,14 +595,17 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
                 children: [
                   Icon(Icons.event_busy, size: 48, color: AppColors.textSecondaryDark.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  const Text('No events scheduled for this day.', style: TextStyle(color: AppColors.textSecondaryDark)),
+                  Text(
+                    _filterByDate != null
+                        ? 'No events scheduled for ${DateFormat('MMM d, yyyy').format(_filterByDate!)}.'
+                        : 'No events found in this category.',
+                    style: const TextStyle(color: AppColors.textSecondaryDark),
+                  ),
                 ],
               ),
             ),
           );
         }
-
-        final rsvps = rsvpsAsync.valueOrNull ?? {};
 
         return Column(
           children: filteredEvents.map((event) {

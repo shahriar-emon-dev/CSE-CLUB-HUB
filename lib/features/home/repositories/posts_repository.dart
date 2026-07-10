@@ -15,7 +15,7 @@ class PostsRepository {
     return SupabaseQueryHelper.runQuery('getTimelineFeed', () async {
       final data = await _client
           .from('unified_feed_timeline')
-          .select('id, type, club_id, club_name, club_logo, author_id, author_name, author_avatar, title, content, image_url, created_at, is_pinned, likes_count, comments_count, user_has_liked')
+          .select()
           .order('created_at', ascending: false)
           .range(offset, SupabaseQueryHelper.calcEndRange(offset, limit));
 
@@ -37,7 +37,7 @@ class PostsRepository {
     return SupabaseQueryHelper.runQuery('getFeedItemById', () async {
       final data = await _client
           .from('unified_feed_timeline')
-          .select('id, type, club_id, club_name, club_logo, author_id, author_name, author_avatar, title, content, image_url, created_at, is_pinned, likes_count, comments_count, user_has_liked')
+          .select()
           .eq('id', itemId)
           .maybeSingle();
 
@@ -143,5 +143,49 @@ class PostsRepository {
       }
       AppLogger.info('Toggled reaction $reactionType for entity $entityId');
     });
+  }
+
+  /// Gets the current user's active reaction for a specific post
+  Future<String?> getUserReaction(String entityId) async {
+    return SupabaseQueryHelper.runQuery('getUserReaction', () async {
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) return null;
+
+      final data = await _client
+          .from('club_post_reactions')
+          .select('reaction_type')
+          .eq('post_id', entityId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return data?['reaction_type'] as String?;
+    }, fallback: null);
+  }
+
+  /// Gets reaction counts for a specific post grouped by reaction_type
+  Future<Map<String, int>> getReactionCounts(String entityId) async {
+    return SupabaseQueryHelper.runQuery('getReactionCounts', () async {
+      final data = await _client
+          .from('club_post_reactions')
+          .select('reaction_type')
+          .eq('post_id', entityId);
+
+      int fav = 0, fire = 0, hand = 0;
+      for (final row in (data as List)) {
+        switch (row['reaction_type'] as String?) {
+          case 'favorite':
+            fav++;
+            break;
+          case 'fire':
+            fire++;
+            break;
+          case 'pan_tool':
+          case 'hand':
+            hand++;
+            break;
+        }
+      }
+      return {'favorite': fav, 'fire': fire, 'pan_tool': hand};
+    }, fallback: {'favorite': 0, 'fire': 0, 'pan_tool': 0});
   }
 }

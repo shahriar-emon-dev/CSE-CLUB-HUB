@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/supabase_config.dart';
 import '../providers/home_feed_provider.dart';
-import '../providers/unified_post_provider.dart';
+import '../providers/post_interaction_provider.dart';
 import '../../../models/unified_feed_item.dart';
 import '../../../models/club_post.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -32,25 +33,32 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
     final content = _commentController.text.trim();
     if (content.isEmpty) return;
 
-    await ref.read(unifiedPostActionsNotifierProvider.notifier).addComment(widget.postId, type, content);
-    _commentController.clear();
-    if (!mounted) return;
-    FocusScope.of(context).unfocus();
-    
-    // Invalidate so it fetches the new comment
-    ref.invalidate(unifiedCommentsProvider(widget.postId));
-    ref.invalidate(unifiedFeedItemProvider(widget.postId));
+    try {
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) return;
+      final entityType = type == UnifiedFeedItemType.event ? 'event' : 'club_post';
+      await SupabaseConfig.client.from('comments').insert({
+        'entity_type': entityType,
+        'entity_id': widget.postId,
+        'author_id': userId,
+        'content': content,
+      });
+      _commentController.clear();
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      ref.invalidate(postCommentsProvider(widget.postId));
+      ref.invalidate(unifiedFeedItemProvider(widget.postId));
+    } catch (_) {}
   }
 
-  void _toggleReaction(String type) async {
-    await ref.read(unifiedPostActionsNotifierProvider.notifier).toggleReaction(widget.postId, type);
-    ref.invalidate(unifiedFeedItemProvider(widget.postId));
+  void _toggleReaction(String type) {
+    ref.read(postReactionNotifierProvider(widget.postId).notifier).toggleReaction(type);
   }
 
   @override
   Widget build(BuildContext context) {
     final postAsync = ref.watch(unifiedFeedItemProvider(widget.postId));
-    final commentsAsync = ref.watch(unifiedCommentsProvider(widget.postId));
+    final commentsAsync = ref.watch(postCommentsProvider(widget.postId));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D14),
@@ -241,26 +249,47 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
           
           // Reaction Bar (Posts only)
           if (post.type == UnifiedFeedItemType.post)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Container(
-                padding: const EdgeInsets.only(top: 24),
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+            Consumer(builder: (context, ref, _) {
+              final rs = ref.watch(postReactionNotifierProvider(post.id));
+              final fav = rs.counts.values.any((v) => v > 0) ? (rs.counts['favorite'] ?? 0) : post.favoriteCount;
+              final fire = rs.counts.values.any((v) => v > 0) ? (rs.counts['fire'] ?? 0) : post.fireCount;
+              final hand = rs.counts.values.any((v) => v > 0) ? (rs.counts['pan_tool'] ?? 0) : post.handCount;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Container(
+                  padding: const EdgeInsets.only(top: 24),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildReactionButton(
+                        rs.activeReaction == 'favorite' ? Icons.favorite : Icons.favorite_border,
+                        fav, 'favorite',
+                        isActive: rs.activeReaction == 'favorite',
+                        activeColor: const Color(0xFFFF4757),
+                      ),
+                      const SizedBox(width: 24),
+                      _buildReactionButton(Icons.chat_bubble_outline, post.commentCount, 'comment', isStatic: true),
+                      const SizedBox(width: 24),
+                      _buildReactionButton(
+                        rs.activeReaction == 'fire' ? Icons.local_fire_department : Icons.local_fire_department_outlined,
+                        fire, 'fire',
+                        isActive: rs.activeReaction == 'fire',
+                        activeColor: const Color(0xFFFF6B35),
+                      ),
+                      const SizedBox(width: 24),
+                      _buildReactionButton(
+                        rs.activeReaction == 'pan_tool' ? Icons.front_hand : Icons.front_hand_outlined,
+                        hand, 'pan_tool',
+                        isActive: rs.activeReaction == 'pan_tool',
+                        activeColor: const Color(0xFFFFD93D),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    _buildReactionButton(Icons.favorite_border, post.favoriteCount, 'favorite'),
-                    const SizedBox(width: 24),
-                    _buildReactionButton(Icons.chat_bubble_outline, post.commentCount, 'comment', isStatic: true),
-                    const SizedBox(width: 24),
-                    _buildReactionButton(Icons.local_fire_department_outlined, post.fireCount, 'fire'),
-                    const SizedBox(width: 24),
-                    _buildReactionButton(Icons.front_hand_outlined, post.handCount, 'pan_tool'),
-                  ],
-                ),
-              ),
-            ),
+              );
+            }),
           
           if (post.type != UnifiedFeedItemType.post)
             const SizedBox(height: 24),
@@ -269,7 +298,8 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
     );
   }
 
-  Widget _buildReactionButton(IconData icon, int count, String type, {bool isStatic = false}) {
+  Widget _buildReactionButton(IconData icon, int count, String type, {bool isStatic = false, bool isActive = false, Color? activeColor}) {
+    final color = isActive ? (activeColor ?? const Color(0xFFE2BFB0)) : const Color(0xFFE2BFB0);
     return InkWell(
       onTap: isStatic ? null : () => _toggleReaction(type),
       borderRadius: BorderRadius.circular(16),
@@ -277,9 +307,9 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
         padding: const EdgeInsets.all(6.0),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFFE2BFB0), size: 20),
+            Icon(icon, color: color, size: 20),
             const SizedBox(width: 8),
-            Text(count.toString(), style: const TextStyle(color: Color(0xFFE2BFB0), fontSize: 15, fontWeight: FontWeight.w500)),
+            Text(count.toString(), style: TextStyle(color: color, fontSize: 15, fontWeight: isActive ? FontWeight.bold : FontWeight.w500)),
           ],
         ),
       ),
@@ -371,7 +401,7 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
   }
 
   Widget _buildStickyCommentInput(UnifiedFeedItemType type) {
-    final isLoading = ref.watch(unifiedPostActionsNotifierProvider).isLoading;
+    final isLoading = false; // No longer uses shared notifier
 
     return Container(
       decoration: BoxDecoration(

@@ -120,24 +120,24 @@ class SearchRepository {
       final results = await Future.wait([
         _client
             .from('profiles')
-            .select('id, email, full_name, role, status, avatar_url, student_id, department, batch, skills, bio, created_at')
+            .select()
             .ilike('full_name', pattern)
             .eq('is_approved', true)
             .limit(limit),
         _client
             .from('club_list_view')
-            .select('id, name, slug, description, category, logo_url, cover_url, followers_count, status, brand_color, executive_names, upcoming_events_count')
+            .select()
             .ilike('name', pattern)
             .limit(limit),
         _client
             .from('event_list_view')
-            .select('id, title, description, category, venue, location, event_date, end_date, cover_image_url, capacity, organizing_club_id, organizing_club_name, is_published, is_cancelled, created_by, created_at')
+            .select()
             .ilike('title', pattern)
             .eq('is_published', true)
             .limit(limit),
         _client
             .from('blogs')
-            .select('id, title, content, author_id, created_at, cover_image_url, category, status')
+            .select()
             .ilike('title', pattern)
             .eq('status', 'published')
             .limit(limit),

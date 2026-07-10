@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../providers/admin_providers.dart';
 import '../../clubs/providers/clubs_provider.dart';
 import '../../../models/user_profile.dart';
+import '../widgets/member_detail_modal.dart';
 
 class AdminMembersScreen extends ConsumerWidget {
   const AdminMembersScreen({super.key});
@@ -274,12 +275,14 @@ class AdminMembersScreen extends ConsumerWidget {
     final isExecutive = user.isExecutive || user.isAdmin || user.isSuperAdmin;
     final avatarUrl = user.avatarUrl ?? 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(user.fullName)}&background=1d100a&color=e9c176';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      decoration: BoxDecoration(
-        border: showBorder ? Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))) : null,
-      ),
-      child: Row(
+    return InkWell(
+      onTap: () => MemberDetailModal.show(context, user),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        decoration: BoxDecoration(
+          border: showBorder ? Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))) : null,
+        ),
+        child: Row(
         children: [
           Expanded(
             flex: 3,
@@ -402,6 +405,7 @@ class AdminMembersScreen extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 

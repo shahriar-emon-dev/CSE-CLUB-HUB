@@ -170,7 +170,7 @@ class AdminRepository {
   /// Member Management Queries (Paginated & Column-Optimized)
   Future<List<UserProfile>> getUsers({String? searchQuery, int limit = 15, int offset = 0}) async {
     return SupabaseQueryHelper.runQuery('getUsers', () async {
-      var query = _supabase.from('profiles').select('id, email, full_name, role, status, avatar_url, student_id, department, batch, skills, bio, created_at');
+      var query = _supabase.from('profiles').select();
       
       if (searchQuery != null && searchQuery.isNotEmpty) {
         query = query.or('full_name.ilike.%$searchQuery%,student_id.ilike.%$searchQuery%,email.ilike.%$searchQuery%');
@@ -395,6 +395,97 @@ class AdminRepository {
         await _supabase.from('events').update({'is_cancelled': true}).eq('id', eventId);
       }
       AppLogger.info('Event $eventId processed with delete=$isDelete');
+    });
+  }
+
+  /// Advanced User Actions (Ban, Unban, Verify, Role Update, Password Reset)
+  Future<void> banUser(String userId, {String? reason}) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('banUser', () async {
+      await _supabase.from('profiles').update({'status': 'banned'}).eq('id', userId);
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'user_banned',
+        'notes': reason ?? 'User banned via Admin Portal',
+      });
+      AppLogger.info('Banned user $userId. Reason: $reason');
+    });
+  }
+
+  Future<void> unbanUser(String userId) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('unbanUser', () async {
+      await _supabase.from('profiles').update({'status': 'active'}).eq('id', userId);
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'user_unbanned',
+        'notes': 'User unbanned via Admin Portal',
+      });
+      AppLogger.info('Unbanned user $userId');
+    });
+  }
+
+  Future<void> verifyUser(String userId) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('verifyUser', () async {
+      await _supabase.from('profiles').update({'status': 'active'}).eq('id', userId);
+      try {
+        await _supabase.from('profiles').update({'is_verified': true}).eq('id', userId);
+      } catch (_) {
+        // Column might not exist in early migrations, status='active' covers verification
+      }
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'user_verified',
+        'notes': 'User verified via Admin Portal',
+      });
+      AppLogger.info('Verified user $userId');
+    });
+  }
+
+  Future<void> updateUserRole(String userId, String newRole) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('updateUserRole', () async {
+      await _supabase.from('profiles').update({'role': newRole}).eq('id', userId);
+      await _supabase.from('moderation_logs').insert({
+        'moderator_id': _supabase.auth.currentUser!.id,
+        'action': 'role_updated',
+        'notes': 'Role changed to $newRole for user $userId',
+      });
+      AppLogger.info('Updated role for user $userId to $newRole');
+    });
+  }
+
+  Future<void> assignClubMembership(String userId, String clubId, String roleTitle) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('assignClubMembership', () async {
+      final roleLower = roleTitle.toLowerCase();
+      if (roleLower.contains('executive') || roleLower.contains('admin') || roleLower.contains('lead')) {
+        await promoteToExecutive(userId, clubId, roleTitle);
+      } else {
+        await _supabase.from('club_followers').upsert({
+          'club_id': clubId,
+          'user_id': userId,
+        });
+      }
+      AppLogger.info('Assigned membership for user $userId in club $clubId ($roleTitle)');
+    });
+  }
+
+  Future<void> removeClubMembership(String userId, String clubId) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('removeClubMembership', () async {
+      await _supabase.from('club_followers').delete().eq('club_id', clubId).eq('user_id', userId);
+      await _supabase.from('club_executives').delete().eq('club_id', clubId).eq('user_id', userId);
+      AppLogger.info('Removed membership for user $userId from club $clubId');
+    });
+  }
+
+  Future<void> resetUserPassword(String email) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('resetUserPassword', () async {
+      await _supabase.auth.resetPasswordForEmail(email);
+      AppLogger.info('Sent password reset email to $email');
     });
   }
 }

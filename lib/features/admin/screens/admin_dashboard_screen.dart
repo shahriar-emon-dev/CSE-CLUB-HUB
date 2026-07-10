@@ -89,6 +89,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           mainAxisSpacing: 16,
           childAspectRatio: 1.2,
           children: [
+            // 1. Total Students
             _buildStatCard(
               icon: Icons.person_add,
               badge: '+${stats.recentRegistrations}',
@@ -115,9 +116,28 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ],
               ),
             ),
+            // 2. Active Members
+            _buildStatCard(
+              icon: Icons.verified_user,
+              iconColor: const Color(0xFF4CAF50),
+              badgeText: 'Active Status',
+              label: 'Active Members',
+              value: stats.activeMembers.toString(),
+              progressWidget: Text('${stats.activeMembers} verified regular students & executives', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 3. Total Executives
+            _buildStatCard(
+              icon: Icons.manage_accounts,
+              iconColor: AppColors.primaryContainer,
+              badgeText: 'Leadership',
+              label: 'Total Executives',
+              value: stats.totalExecutives.toString(),
+              progressWidget: Text('Club leads and platform moderators', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 4. Active Clubs
             _buildStatCard(
               icon: Icons.hub,
-              badgeText: '${stats.totalPosts} Posts',
+              badgeText: '${stats.activeClubs} Operational',
               label: 'Active Clubs',
               value: stats.activeClubs.toString(),
               progressWidget: Column(
@@ -127,9 +147,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
+                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2)))),
                       const SizedBox(width: 4),
-                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2), boxShadow: [BoxShadow(color: AppColors.tertiary.withValues(alpha: 0.5), blurRadius: 8)]))),
+                      Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.tertiary, borderRadius: BorderRadius.circular(2)))),
                       const SizedBox(width: 4),
                       Expanded(child: Container(height: 4, decoration: BoxDecoration(color: AppColors.surfaceVariantDark, borderRadius: BorderRadius.circular(2)))),
                     ],
@@ -137,6 +157,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ],
               ),
             ),
+            // 5. Total Events
             _buildStatCard(
               icon: Icons.calendar_month,
               badgeText: '${stats.totalRsvps} RSVPs',
@@ -165,6 +186,43 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 ],
               ),
             ),
+            // 6. Total Posts
+            _buildStatCard(
+              icon: Icons.article,
+              iconColor: const Color(0xFF2196F3),
+              badgeText: 'Feed Content',
+              label: 'Total Posts',
+              value: stats.totalPosts.toString(),
+              progressWidget: Text('Social posts and announcements', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 7. Total Comments
+            _buildStatCard(
+              icon: Icons.comment,
+              iconColor: const Color(0xFFFF9800),
+              badgeText: 'Discussions',
+              label: 'Total Comments',
+              value: stats.totalComments.toString(),
+              progressWidget: Text('User comments and replies across posts', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 8. Total Reactions
+            _buildStatCard(
+              icon: Icons.thumb_up,
+              iconColor: const Color(0xFFE91E63),
+              badgeText: 'Engagement',
+              label: 'Total Reactions',
+              value: stats.totalReactions.toString(),
+              progressWidget: Text('Likes, loves, and emoji reactions', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 9. Total RSVPs
+            _buildStatCard(
+              icon: Icons.confirmation_number,
+              iconColor: const Color(0xFF00BCD4),
+              badgeText: 'Participation',
+              label: 'Total RSVPs',
+              value: stats.totalRsvps.toString(),
+              progressWidget: Text('Event attendees and registrations', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 10. Pending Reports
             _buildStatCard(
               icon: Icons.report_problem,
               iconColor: AppColors.error,
@@ -179,6 +237,25 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                   Icon(Icons.arrow_forward, color: stats.pendingReports > 0 ? AppColors.error : AppColors.tertiary, size: 14),
                 ],
               ),
+            ),
+            // 11. High Risk Reports
+            _buildStatCard(
+              icon: Icons.gavel,
+              iconColor: AppColors.error,
+              badgeText: 'Critical Queue',
+              isUrgent: stats.highRiskReports > 0,
+              label: 'High Risk Flags',
+              value: stats.highRiskReports.toString(),
+              progressWidget: Text(stats.highRiskReports > 0 ? 'High severity flags requiring immediate attention' : 'Zero high-risk items in moderation', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
+            ),
+            // 12. Resolved Today
+            _buildStatCard(
+              icon: Icons.check_circle_outline,
+              iconColor: const Color(0xFF4CAF50),
+              badgeText: 'Daily Resolution',
+              label: 'Resolved Today',
+              value: stats.resolvedTodayReports.toString(),
+              progressWidget: Text('Moderation actions closed in current 24h window', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 11)),
             ),
           ],
         );

@@ -83,6 +83,7 @@ class AppRoutes {
   static const String adminEvents = '/admin/events';
   static const String adminModeration = '/admin/moderation';
   static const String adminBlogs = '/admin/blogs';
+  static const String settings = '/profile/edit';
 }
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();

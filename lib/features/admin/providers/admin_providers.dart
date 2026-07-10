@@ -22,9 +22,13 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
 // Dashboard Stats Data Class
 class DashboardStats {
   final int totalStudents;
+  final int activeMembers;
+  final int totalExecutives;
   final int activeClubs;
   final int totalEvents;
   final int pendingReports;
+  final int highRiskReports;
+  final int resolvedTodayReports;
   final int totalPosts;
   final int totalComments;
   final int totalReactions;
@@ -35,9 +39,13 @@ class DashboardStats {
 
   DashboardStats({
     required this.totalStudents,
+    this.activeMembers = 0,
+    this.totalExecutives = 0,
     required this.activeClubs,
     required this.totalEvents,
     required this.pendingReports,
+    this.highRiskReports = 0,
+    this.resolvedTodayReports = 0,
     this.totalPosts = 0,
     this.totalComments = 0,
     this.totalReactions = 0,
@@ -96,9 +104,13 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   
   return DashboardStats(
     totalStudents: (stats['total_students'] ?? 0) as int,
+    activeMembers: (stats['active_members'] ?? 0) as int,
+    totalExecutives: (stats['total_executives'] ?? 0) as int,
     activeClubs: (stats['active_clubs'] ?? 0) as int,
     totalEvents: (stats['total_events'] ?? 0) as int,
     pendingReports: (stats['pending_reports'] ?? 0) as int,
+    highRiskReports: (stats['high_risk_reports'] ?? 0) as int,
+    resolvedTodayReports: (stats['resolved_today_reports'] ?? 0) as int,
     totalPosts: (stats['total_posts'] ?? 0) as int,
     totalComments: (stats['total_comments'] ?? 0) as int,
     totalReactions: (stats['total_reactions'] ?? 0) as int,

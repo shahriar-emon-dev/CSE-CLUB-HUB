@@ -15,7 +15,7 @@ class ProfileRepository {
     return SupabaseQueryHelper.runQuery('getUserProfile', () async {
       final data = await _client
           .from('profiles')
-          .select('id, email, full_name, role, status, avatar_url, student_id, department, batch, skills, bio, created_at')
+          .select()
           .eq('id', userId)
           .maybeSingle();
 
