@@ -37,6 +37,9 @@ class ClubPost {
     this.handCount = 0,
   });
 
+  int get commentsCount => commentCount;
+  int get reactionsCount => favoriteCount;
+
   factory ClubPost.fromJson(Map<String, dynamic> json) {
     return ClubPost(
       id: json['id'] as String,
@@ -51,10 +54,10 @@ class ClubPost {
       clubLogoUrl: json['club_logo_url'] as String?,
       authorName: json['author_name'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
-      commentCount: json['comment_count'] as int? ?? 0,
-      favoriteCount: json['favorite_count'] as int? ?? 0,
-      fireCount: json['fire_count'] as int? ?? 0,
-      handCount: json['hand_count'] as int? ?? 0,
+      commentCount: (json['comment_count'] ?? json['comments_count']) as int? ?? 0,
+      favoriteCount: (json['favorite_count'] ?? json['reactions_count'] ?? json['reaction_count']) as int? ?? 0,
+      fireCount: (json['fire_count'] ?? 0) as int? ?? 0,
+      handCount: (json['hand_count'] ?? 0) as int? ?? 0,
     );
   }
 

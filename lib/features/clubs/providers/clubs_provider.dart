@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../../models/club.dart';
 import '../../../models/club_executive.dart';
@@ -25,12 +26,27 @@ final clubDetailProvider = FutureProvider.family<Club?, String>((ref, clubSlugOr
   return repository.getClubByIdOrSlug(clubSlugOrId);
 });
 
-final clubExecutivesProvider = FutureProvider.family<List<ClubExecutive>, String>((ref, clubId) async {
+final clubExecutivesProvider = StreamProvider.family<List<ClubExecutive>, String>((ref, clubId) {
   final session = ref.watch(authSessionProvider).valueOrNull;
-  if (session == null) return [];
+  if (session == null) return Stream.value([]);
 
-  final repository = ref.read(clubsRepositoryProvider);
-  return repository.getClubExecutives(clubId);
+  final channel = SupabaseConfig.client
+      .channel('public:rt_club_execs_${clubId}_${DateTime.now().millisecondsSinceEpoch}')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'club_executives',
+        callback: (payload) {
+          ref.invalidateSelf();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
+  return Stream.fromFuture(ref.read(clubsRepositoryProvider).getClubExecutives(clubId));
 });
 
 // User's followed clubs stream

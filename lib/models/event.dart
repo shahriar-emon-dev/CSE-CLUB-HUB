@@ -50,6 +50,8 @@ class Event {
   bool get isUpcoming => eventDate.isAfter(DateTime.now());
   bool get isPast => eventDate.isBefore(DateTime.now());
   bool get isFull => capacity != null && (rsvpCount ?? 0) >= capacity!;
+  String? get clubName => organizerName;
+  int? get goingCount => rsvpCount;
 
   factory Event.fromJson(Map<String, dynamic> json) {
     return Event(

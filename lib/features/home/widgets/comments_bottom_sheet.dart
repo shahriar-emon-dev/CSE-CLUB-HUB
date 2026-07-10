@@ -81,8 +81,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
       _controller.clear();
       _cancelReply();
 
-      // Invalidate to refresh comments
+      // Invalidate to refresh comments and update post cards live
       ref.invalidate(postCommentsProvider(widget.entityId));
+      ref.invalidate(homeFeedProvider);
+      ref.invalidate(unifiedFeedItemProvider(widget.entityId));
 
       // Scroll to bottom after a short delay
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -131,6 +133,8 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
           .eq('id', commentId)
           .eq('author_id', SupabaseConfig.currentUserId ?? '');
       ref.invalidate(postCommentsProvider(widget.entityId));
+      ref.invalidate(homeFeedProvider);
+      ref.invalidate(unifiedFeedItemProvider(widget.entityId));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

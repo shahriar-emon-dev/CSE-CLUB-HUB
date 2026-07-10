@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../models/event.dart';
 import '../providers/clubs_provider.dart';
@@ -12,6 +13,9 @@ import '../../events/providers/events_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../../core/router/app_router.dart';
 import '../../home/widgets/post_actions_bottom_sheet.dart';
+import '../../../models/unified_feed_item.dart';
+import '../../home/widgets/post_card.dart';
+import '../../home/widgets/event_card.dart';
 
 class ClubProfileScreen extends ConsumerStatefulWidget {
   final String clubId;
@@ -340,6 +344,163 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
     );
   }
 
+  void _showExecutiveDetailModal(BuildContext context, dynamic leader) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Color(0xFF161622),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            ),
+            Container(
+              width: 96, height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(colors: [AppColors.primary, Colors.blue]),
+                image: leader.avatarUrl != null && leader.avatarUrl!.isNotEmpty ? DecorationImage(
+                  image: NetworkImage(leader.avatarUrl!),
+                  fit: BoxFit.cover,
+                ) : null,
+              ),
+              child: leader.avatarUrl == null || leader.avatarUrl!.isEmpty
+                  ? const Icon(Icons.person, color: Colors.white, size: 48)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              leader.fullName,
+              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+              ),
+              child: Text(
+                leader.roleTitle,
+                style: const TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D0D14),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _buildDetailRow(Icons.badge, 'Student ID', leader.studentId ?? 'Not provided'),
+                  const Divider(color: Colors.white12, height: 24),
+                  _buildDetailRow(Icons.school, 'Department', leader.department ?? 'Not provided'),
+                  const Divider(color: Colors.white12, height: 24),
+                  _buildDetailRow(Icons.group, 'Batch', leader.batch ?? 'Not provided'),
+                  const Divider(color: Colors.white12, height: 24),
+                  _buildDetailRow(
+                    Icons.calendar_today,
+                    'Assigned Date',
+                    leader.assignedDate != null ? DateFormat.yMMMd().format(leader.assignedDate!) : 'Not recorded',
+                  ),
+                  const Divider(color: Colors.white12, height: 24),
+                  _buildDetailRow(
+                    Icons.verified_user,
+                    'Status',
+                    leader.isActive ? 'Active Executive' : 'Inactive',
+                    valueColor: leader.isActive ? Colors.greenAccent : Colors.redAccent,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (leader.email != null && leader.email!.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.email, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        leader.email!,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (leader.contact != null && leader.contact!.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.phone, color: Colors.greenAccent, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        leader.contact!,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value, {Color? valueColor}) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.white54),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        const Spacer(),
+        Text(value, style: TextStyle(color: valueColor ?? Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
   Widget _buildLeadership(String realClubId) {
     final leadershipAsync = ref.watch(clubExecutivesProvider(realClubId));
 
@@ -354,7 +515,7 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
           height: 140,
           child: leadershipAsync.when(
             loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-            error: (err, stack) => Center(child: Text('Failed to load', style: const TextStyle(color: Colors.red))),
+            error: (err, stack) => const Center(child: Text('Failed to load', style: TextStyle(color: Colors.red))),
             data: (leaders) {
               if (leaders.isEmpty) {
                 return const Center(child: Text('No executives found', style: TextStyle(color: AppColors.textSecondaryDark)));
@@ -367,68 +528,71 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
                 itemBuilder: (context, index) {
                   final leader = leaders[index];
                   
-                  return SizedBox(
-                    width: 80,
-                    child: Column(
-                      children: [
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              width: 80, height: 80,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [AppColors.primary, Colors.blue],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                  return GestureDetector(
+                    onTap: () => _showExecutiveDetailModal(context, leader),
+                    child: SizedBox(
+                      width: 80,
+                      child: Column(
+                        children: [
+                          Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 80, height: 80,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [AppColors.primary, Colors.blue],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.5),
+                                      blurRadius: 24,
+                                      spreadRadius: 2,
+                                    )
+                                  ],
                                 ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.5),
-                                    blurRadius: 24,
-                                    spreadRadius: 2,
-                                  )
-                                ],
                               ),
-                            ),
-                            Container(
-                              width: 76, height: 76,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.surfaceContainerDark,
-                                border: Border.all(
-                                  color: const Color(0xFF0D0D14),
-                                  width: 2,
+                              Container(
+                                width: 76, height: 76,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.surfaceContainerDark,
+                                  border: Border.all(
+                                    color: const Color(0xFF0D0D14),
+                                    width: 2,
+                                  ),
+                                  image: leader.avatarUrl != null && leader.avatarUrl!.isNotEmpty ? DecorationImage(
+                                    image: NetworkImage(leader.avatarUrl!),
+                                    fit: BoxFit.cover,
+                                  ) : null,
                                 ),
-                                image: leader.avatarUrl != null && leader.avatarUrl!.isNotEmpty ? DecorationImage(
-                                  image: NetworkImage(leader.avatarUrl!),
-                                  fit: BoxFit.cover,
-                                ) : null,
+                                child: leader.avatarUrl == null || leader.avatarUrl!.isEmpty
+                                    ? const Icon(Icons.person, color: AppColors.textSecondaryDark, size: 40)
+                                    : null,
                               ),
-                              child: leader.avatarUrl == null || leader.avatarUrl!.isEmpty
-                                  ? const Icon(Icons.person, color: AppColors.textSecondaryDark, size: 40)
-                                  : null,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          leader.fullName,
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          leader.roleTitle,
-                          style: const TextStyle(color: Color(0xFFFFB380), fontSize: 11, fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            leader.fullName,
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            leader.roleTitle,
+                            style: const TextStyle(color: Color(0xFFFFB380), fontSize: 11, fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -454,6 +618,7 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
           children: [
             _buildTabButton('Posts', 0),
             _buildTabButton('Events', 1),
+            _buildTabButton('Executives', 2),
           ],
         ),
       ),
@@ -465,7 +630,7 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
     return GestureDetector(
       onTap: () => setState(() => _selectedTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(32),
@@ -482,7 +647,134 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
     );
   }
 
+  Widget _buildExecutiveBoardTab(String realClubId) {
+    final leadershipAsync = ref.watch(clubExecutivesProvider(realClubId));
+    return leadershipAsync.when(
+      loading: () => const Center(child: Padding(
+        padding: EdgeInsets.all(32),
+        child: CircularProgressIndicator(color: AppColors.primary),
+      )),
+      error: (err, stack) => const Center(child: Text('Failed to load executives', style: TextStyle(color: Colors.red))),
+      data: (leaders) {
+        if (leaders.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('No executives assigned to this club yet.', style: TextStyle(color: AppColors.textSecondaryDark)),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: leaders.map((leader) {
+              return GestureDetector(
+                onTap: () => _showExecutiveDetailModal(context, leader),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60, height: 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF0D0D14),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.6), width: 2),
+                          image: leader.avatarUrl != null && leader.avatarUrl!.isNotEmpty ? DecorationImage(
+                            image: NetworkImage(leader.avatarUrl!),
+                            fit: BoxFit.cover,
+                          ) : null,
+                        ),
+                        child: leader.avatarUrl == null || leader.avatarUrl!.isEmpty
+                            ? const Icon(Icons.person, color: AppColors.textSecondaryDark, size: 30)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    leader.fullName,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: leader.isActive ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    leader.isActive ? 'Active' : 'Inactive',
+                                    style: TextStyle(
+                                      color: leader.isActive ? Colors.greenAccent : Colors.redAccent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              leader.roleTitle,
+                              style: const TextStyle(color: Color(0xFFFFB380), fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.badge_outlined, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'ID: ${leader.studentId ?? "N/A"} • ${leader.department ?? "CSE"}',
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            if (leader.assignedDate != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Assigned: ${DateFormat.yMMMd().format(leader.assignedDate!)}',
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: Colors.white38),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildFeedContent(String realClubId) {
+    if (_selectedTabIndex == 2) {
+      return _buildExecutiveBoardTab(realClubId);
+    }
     if (_selectedTabIndex == 1) {
       final eventsAsync = ref.watch(clubEventsProvider(realClubId));
       return eventsAsync.when(
@@ -503,7 +795,30 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              children: events.map((event) => _buildEventCard(event)).toList(),
+              children: events.map((event) {
+                final item = UnifiedFeedItem(
+                  type: UnifiedFeedItemType.event,
+                  id: event.id,
+                  clubId: event.organizingClubId,
+                  clubName: event.clubName ?? event.organizerName ?? 'Event Club',
+                  authorId: event.createdBy ?? '',
+                  authorName: event.organizerName ?? 'Organizer',
+                  title: event.title,
+                  description: event.description,
+                  isPinned: false,
+                  createdAt: event.createdAt,
+                  updatedAt: event.updatedAt ?? event.createdAt,
+                  eventDate: event.eventDate,
+                  venue: event.venue,
+                  capacity: event.capacity,
+                  rsvpCount: event.rsvpCount ?? event.goingCount ?? 0,
+                  mediaAssetUrl: event.coverImageUrl,
+                );
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: EventCard(item: item),
+                );
+              }).toList(),
             ),
           );
         },
@@ -530,271 +845,34 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: posts.map((post) {
-              if (post.isPinned) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: _buildPinnedPost(post),
-                );
-              }
+              final item = UnifiedFeedItem(
+                type: UnifiedFeedItemType.post,
+                id: post.id,
+                clubId: post.clubId,
+                clubName: post.clubName ?? 'Club Post',
+                clubLogoUrl: post.clubLogoUrl,
+                authorId: post.authorId,
+                authorName: post.authorName ?? 'Club Member',
+                authorAvatarUrl: post.authorAvatarUrl,
+                title: post.content,
+                description: post.content,
+                isPinned: post.isPinned,
+                createdAt: post.createdAt,
+                updatedAt: post.updatedAt,
+                commentCount: post.commentCount,
+                favoriteCount: post.favoriteCount,
+                fireCount: post.fireCount,
+                handCount: post.handCount,
+                mediaAssetUrl: post.imageUrl,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 24),
-                child: _buildRegularPost(post),
+                child: PostCard(item: item),
               );
             }).toList(),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildEventCard(Event event) {
-    final imageUrl = event.coverImageUrl ?? event.organizerAvatar;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (imageUrl != null && imageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 140,
-                child: kIsWeb
-                    ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => const SizedBox(),
-                      ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                if (event.description != null && event.description!.isNotEmpty)
-                  Text(
-                    event.description!,
-                    style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, color: AppColors.primary, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${event.eventDate.month}/${event.eventDate.day}/${event.eventDate.year}',
-                      style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                )
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPinnedPost(dynamic post) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1C14),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 24, left: 0,
-            child: Container(width: 3, height: 20, color: AppColors.primary,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.only(topRight: Radius.circular(4), bottomRight: Radius.circular(4)),
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.push_pin, color: AppColors.primary, size: 18),
-                        SizedBox(width: 8),
-                        Text('PINNED POST', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          _formatDate(post.createdAt),
-                          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.more_horiz, color: AppColors.textSecondaryDark),
-                          onPressed: () => showPostActions(context, postId: post.id, isPinned: post.isPinned, currentContent: post.content, clubId: widget.clubId),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (post.content.isNotEmpty)
-                  Text(
-                    post.content,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.3),
-                  ),
-                const SizedBox(height: 16),
-                if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      post.imageUrl!,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.favorite_border, color: AppColors.textSecondaryDark, size: 20),
-                        const SizedBox(width: 8),
-                        Text('${post.favoriteCount}', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
-                        const SizedBox(width: 24),
-                        const Icon(Icons.chat_bubble_outline, color: AppColors.textSecondaryDark, size: 20),
-                        const SizedBox(width: 8),
-                        Text('${post.commentCount}', style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 14)),
-                      ],
-                    ),
-                    const Icon(Icons.share, color: AppColors.textSecondaryDark, size: 20),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays > 0) return '${diff.inDays}d ago';
-    if (diff.inHours > 0) return '${diff.inHours}h ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-    return 'Just now';
-  }
-
-  Widget _buildRegularPost(dynamic post) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1C14),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      image: post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty ? DecorationImage(
-                        image: NetworkImage(post.authorAvatarUrl!),
-                        fit: BoxFit.cover,
-                      ) : null,
-                    ),
-                    child: post.authorAvatarUrl == null || post.authorAvatarUrl!.isEmpty ? const Icon(Icons.person, color: AppColors.primary) : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(post.authorName, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                      Text(_formatDate(post.createdAt), style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_horiz, color: AppColors.textSecondaryDark),
-                onPressed: () => showPostActions(context, postId: post.id, isPinned: post.isPinned, currentContent: post.content, clubId: widget.clubId),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            post.content,
-            style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 16, height: 1.5),
-          ),
-          if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                post.imageUrl!,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.favorite_border, color: Color(0xFFB39886), size: 20),
-                  const SizedBox(width: 6),
-                  Text('${post.favoriteCount}', style: const TextStyle(color: Color(0xFFB39886), fontSize: 14)),
-                ],
-              ),
-              const SizedBox(width: 24),
-              Row(
-                children: [
-                  const Icon(Icons.chat_bubble_outline, color: Color(0xFFB39886), size: 20),
-                  const SizedBox(width: 6),
-                  Text('${post.commentCount}', style: const TextStyle(color: Color(0xFFB39886), fontSize: 14)),
-                ],
-              ),
-              const Spacer(),
-              const Icon(Icons.share, color: Color(0xFFB39886), size: 20),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

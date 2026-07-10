@@ -205,30 +205,55 @@ class AdminActionNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _repository.promoteToExecutive(userId, clubId, roleTitle);
-      // Invalidate the users list so it refreshes
       _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(adminExecutivesListProvider);
       _ref.invalidate(dashboardStatsProvider);
       _ref.invalidate(memberStatsProvider);
       _ref.invalidate(moderationStatsProvider);
       _ref.invalidate(clubExecutivesProvider(clubId));
+      _ref.invalidate(currentProfileProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
-  Future<void> revokeExecutive(String userId) async {
+  Future<void> updateExecutivePosition(String userId, String clubId, String newPosition) async {
     state = const AsyncValue.loading();
     try {
-      await _repository.revokeExecutive(userId);
-      // Invalidate the users list so it refreshes
+      await _repository.updateExecutivePosition(userId, clubId, newPosition);
       _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(adminExecutivesListProvider);
       _ref.invalidate(dashboardStatsProvider);
       _ref.invalidate(memberStatsProvider);
       _ref.invalidate(moderationStatsProvider);
+      _ref.invalidate(clubExecutivesProvider(clubId));
+      _ref.invalidate(currentProfileProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> revokeExecutive(String userId, [String? clubId]) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.revokeExecutive(userId, clubId);
+      _ref.invalidate(paginatedUsersProvider);
+      _ref.invalidate(adminExecutivesListProvider);
+      _ref.invalidate(dashboardStatsProvider);
+      _ref.invalidate(memberStatsProvider);
+      _ref.invalidate(moderationStatsProvider);
+      if (clubId != null) {
+        _ref.invalidate(clubExecutivesProvider(clubId));
+      }
+      _ref.invalidate(currentProfileProvider);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 }
@@ -440,16 +465,42 @@ final adminClubsProvider = FutureProvider<List<Club>>((ref) async {
   return (data as List).map((e) => Club.fromJson(e)).toList();
 });
 
-// Admin Executives List Provider
-final adminExecutivesListProvider = FutureProvider<List<ClubExecutive>>((ref) async {
+// Admin Executives List Provider (Realtime enabled)
+final adminExecutivesListProvider = StreamProvider<List<ClubExecutive>>((ref) {
   final session = ref.watch(authSessionProvider).valueOrNull;
-  if (session == null) return [];
+  if (session == null) return Stream.value([]);
 
-  final response = await SupabaseConfig.client
-      .from('club_executives_view')
-      .select()
-      .order('full_name', ascending: true);
-  return (response as List).map((e) => ClubExecutive.fromJson(e)).toList();
+  final channel = SupabaseConfig.client
+      .channel('public:rt_admin_executives_${DateTime.now().millisecondsSinceEpoch}')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'club_executives',
+        callback: (payload) {
+          ref.invalidateSelf();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'profiles',
+        callback: (payload) {
+          ref.invalidateSelf();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
+  return Stream.fromFuture(
+    SupabaseConfig.client
+        .from('club_executives_view')
+        .select()
+        .order('full_name', ascending: true)
+        .then((response) => (response as List).map((e) => ClubExecutive.fromJson(e)).toList()),
+  );
 });
 
 // Admin Events List Provider

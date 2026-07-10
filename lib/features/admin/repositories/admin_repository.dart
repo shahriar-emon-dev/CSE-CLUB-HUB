@@ -194,13 +194,26 @@ class AdminRepository {
     });
   }
 
-  Future<void> revokeExecutive(String userId) async {
+  Future<void> updateExecutivePosition(String userId, String clubId, String newPosition) async {
+    _checkSuperAdmin();
+    return SupabaseQueryHelper.runQuery('updateExecutivePosition', () async {
+      await _supabase.rpc('update_executive_position', params: {
+        'p_user_id': userId,
+        'p_club_id': clubId,
+        'p_new_position': newPosition,
+      });
+      AppLogger.info('Updated executive position for user $userId in club $clubId to $newPosition');
+    });
+  }
+
+  Future<void> revokeExecutive(String userId, [String? clubId]) async {
     _checkSuperAdmin();
     return SupabaseQueryHelper.runQuery('revokeExecutive', () async {
       await _supabase.rpc('revoke_executive_role', params: {
         'p_user_id': userId,
+        if (clubId != null) 'p_club_id': clubId,
       });
-      AppLogger.info('Revoked executive status for user $userId');
+      AppLogger.info('Revoked executive status for user $userId (club: $clubId)');
     });
   }
 

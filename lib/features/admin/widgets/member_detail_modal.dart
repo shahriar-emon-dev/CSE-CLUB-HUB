@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/user_profile.dart';
 import '../providers/admin_providers.dart';
+import '../../clubs/providers/clubs_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class MemberDetailModal extends ConsumerStatefulWidget {
   final UserProfile user;
@@ -68,6 +70,9 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
         SnackBar(content: Text('$title executed successfully.'), backgroundColor: AppColors.primary),
       );
       ref.invalidate(paginatedUsersProvider);
+      ref.invalidate(adminExecutivesListProvider);
+      ref.invalidate(currentProfileProvider);
+      ref.invalidate(dashboardStatsProvider);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,9 +204,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                   icon: Icons.workspace_premium,
                   label: 'Promote Executive',
                   color: AppColors.primary,
-                  onTap: () => _runAction('Promote Executive', () async {
-                    await ref.read(adminRepositoryProvider).promoteToExecutive(user.id, user.managedClubId ?? 'cse_club', 'Club Executive');
-                  }),
+                  onTap: _showPromoteExecutiveDialog,
                 ),
                 // 2. Revoke Executive
                 if (user.isExecutive) ...[
@@ -263,7 +266,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                   label: 'Set Role: Admin',
                   color: const Color(0xFF9C27B0),
                   onTap: () => _runAction('Change Role to Super Admin', () async {
-                    await ref.read(adminRepositoryProvider).updateUserRole(user.id, 'Super Admin');
+                    await ref.read(adminRepositoryProvider).updateUserRole(user.id, 'super_admin');
                   }),
                 ),
                 const SizedBox(width: 8),
@@ -273,7 +276,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                   label: 'Set Role: Student',
                   color: const Color(0xFF00BCD4),
                   onTap: () => _runAction('Change Role to Student', () async {
-                    await ref.read(adminRepositoryProvider).updateUserRole(user.id, 'Regular Student');
+                    await ref.read(adminRepositoryProvider).updateUserRole(user.id, 'member');
                   }),
                 ),
                 const SizedBox(width: 8),
@@ -282,9 +285,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                   icon: Icons.group_add,
                   label: 'Assign Club',
                   color: const Color(0xFF8BC34A),
-                  onTap: () => _runAction('Assign Club Membership', () async {
-                    await ref.read(adminRepositoryProvider).assignClubMembership(user.id, 'cse_club', 'Member');
-                  }),
+                  onTap: _showAssignClubDialog,
                 ),
                 const SizedBox(width: 8),
                 // 10. Remove Club Membership
@@ -292,9 +293,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                   icon: Icons.group_remove,
                   label: 'Remove Club',
                   color: const Color(0xFFFF5722),
-                  onTap: () => _runAction('Remove Club Membership', () async {
-                    await ref.read(adminRepositoryProvider).removeClubMembership(user.id, 'cse_club');
-                  }),
+                  onTap: _showRemoveClubDialog,
                 ),
                 const SizedBox(width: 8),
                 // 11. Copy Student ID
@@ -436,34 +435,39 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
   }
 
   Widget _buildInfoGrid(List<(String, String)> items) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 3.8,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 500 ? 2 : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisExtent: 70,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 12,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(item.$1, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 11)),
-              const SizedBox(height: 2),
-              Text(item.$2, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-            ],
-          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(item.$1, style: const TextStyle(color: AppColors.textTertiaryDark, fontSize: 11)),
+                  const SizedBox(height: 3),
+                  Text(item.$2, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -519,6 +523,222 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
             const Text('No pending moderation flags or disciplinary records for this user.', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13)),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPromoteExecutiveDialog() {
+    String? selectedClubId = widget.user.managedClubId;
+    if (selectedClubId != null && !selectedClubId.contains('-')) {
+      selectedClubId = null;
+    }
+    final roleController = TextEditingController(text: 'Club Executive');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, child) {
+          final clubsAsync = ref.watch(clubsProvider);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF13131F),
+            title: Text('Promote ${widget.user.fullName} to Executive', style: const TextStyle(color: Colors.white, fontSize: 18)),
+            content: clubsAsync.when(
+              loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: AppColors.tertiary))),
+              error: (e, st) => Text('Error loading clubs: $e', style: const TextStyle(color: AppColors.error)),
+              data: (clubs) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: selectedClubId,
+                        dropdownColor: const Color(0xFF1E1E2C),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Select Club',
+                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                          filled: true,
+                          fillColor: const Color(0xFF0D0D14),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        items: clubs.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                        onChanged: (val) => selectedClubId = val,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: roleController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Role Title (e.g. President, GS)',
+                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                          filled: true,
+                          fillColor: const Color(0xFF0D0D14),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                onPressed: () {
+                  if (selectedClubId != null && roleController.text.trim().isNotEmpty) {
+                    Navigator.pop(ctx);
+                    _runAction('Promote Executive', () async {
+                      await ref.read(adminRepositoryProvider).promoteToExecutive(widget.user.id, selectedClubId!, roleController.text.trim());
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a club and enter a role title.')));
+                  }
+                },
+                child: const Text('Confirm Promotion'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAssignClubDialog() {
+    String? selectedClubId;
+    final roleController = TextEditingController(text: 'Member');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, child) {
+          final clubsAsync = ref.watch(clubsProvider);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF13131F),
+            title: Text('Assign ${widget.user.fullName} to Club', style: const TextStyle(color: Colors.white, fontSize: 18)),
+            content: clubsAsync.when(
+              loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: AppColors.tertiary))),
+              error: (e, st) => Text('Error loading clubs: $e', style: const TextStyle(color: AppColors.error)),
+              data: (clubs) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: selectedClubId,
+                        dropdownColor: const Color(0xFF1E1E2C),
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Select Club',
+                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                          filled: true,
+                          fillColor: const Color(0xFF0D0D14),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        items: clubs.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                        onChanged: (val) => selectedClubId = val,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: roleController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Membership Role (e.g. Member, Volunteer)',
+                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                          filled: true,
+                          fillColor: const Color(0xFF0D0D14),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8BC34A), foregroundColor: Colors.white),
+                onPressed: () {
+                  if (selectedClubId != null && roleController.text.trim().isNotEmpty) {
+                    Navigator.pop(ctx);
+                    _runAction('Assign Club Membership', () async {
+                      await ref.read(adminRepositoryProvider).assignClubMembership(widget.user.id, selectedClubId!, roleController.text.trim());
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a club.')));
+                  }
+                },
+                child: const Text('Assign Membership'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showRemoveClubDialog() {
+    String? selectedClubId;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, child) {
+          final clubsAsync = ref.watch(clubsProvider);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF13131F),
+            title: Text('Remove ${widget.user.fullName} from Club', style: const TextStyle(color: Colors.white, fontSize: 18)),
+            content: clubsAsync.when(
+              loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: AppColors.tertiary))),
+              error: (e, st) => Text('Error loading clubs: $e', style: const TextStyle(color: AppColors.error)),
+              data: (clubs) {
+                return SingleChildScrollView(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedClubId,
+                    dropdownColor: const Color(0xFF1E1E2C),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Select Club to Remove From',
+                      labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+                      filled: true,
+                      fillColor: const Color(0xFF0D0D14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    items: clubs.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                    onChanged: (val) => selectedClubId = val,
+                  ),
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5722), foregroundColor: Colors.white),
+                onPressed: () {
+                  if (selectedClubId != null) {
+                    Navigator.pop(ctx);
+                    _runAction('Remove Club Membership', () async {
+                      await ref.read(adminRepositoryProvider).removeClubMembership(widget.user.id, selectedClubId!);
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a club.')));
+                  }
+                },
+                child: const Text('Remove Membership'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

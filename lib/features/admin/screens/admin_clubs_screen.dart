@@ -31,20 +31,23 @@ class _AdminClubsScreenState extends ConsumerState<AdminClubsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Club Management Hub',
-                      style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: -1),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Monitor, edit, and oversee all registered student organizations and nodes across campus.',
-                      style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 16),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Club Management Hub',
+                        style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: -1),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Monitor, edit, and oversee all registered student organizations and nodes across campus.',
+                        style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 16),
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const CreateClubScreen()));

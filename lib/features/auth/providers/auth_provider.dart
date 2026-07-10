@@ -20,14 +20,38 @@ final authSessionProvider = StreamProvider<String?>((ref) {
   return SupabaseConfig.client.auth.onAuthStateChange.map((event) => event.session?.accessToken);
 });
 
-/// FutureProvider that fetches the [UserProfile] data for the currently authenticated user
-/// from the public.profiles table using ProfileRepository.
+/// FutureProvider that fetches and listens in realtime to the [UserProfile] data for the currently authenticated user
 final currentProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return null;
 
-  final repository = ref.read(profileRepositoryProvider);
-  return repository.getUserProfile(user.id);
+  final channel = SupabaseConfig.client
+      .channel('public:rt_current_profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}')
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'profiles',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'id', value: user.id),
+        callback: (payload) {
+          ref.invalidateSelf();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'club_executives',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: user.id),
+        callback: (payload) {
+          ref.invalidateSelf();
+        },
+      )
+      .subscribe();
+
+  ref.onDispose(() {
+    SupabaseConfig.client.removeChannel(channel);
+  });
+
+  return ref.read(profileRepositoryProvider).getUserProfile(user.id);
 });
 
 // Auth actions notifier

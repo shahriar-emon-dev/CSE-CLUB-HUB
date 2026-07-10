@@ -29,20 +29,23 @@ class _AdminEventsScreenState extends ConsumerState<AdminEventsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Campus Event Moderation',
-                      style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: -1),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Review, cancel, or remove upcoming and past club events across campus nodes.',
-                      style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 16),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Campus Event Moderation',
+                        style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: -1),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Review, cancel, or remove upcoming and past club events across campus nodes.',
+                        style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 16),
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const CreateEventScreen()));
