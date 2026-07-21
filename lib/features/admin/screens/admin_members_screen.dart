@@ -75,6 +75,8 @@ class AdminMembersScreen extends ConsumerWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 16),
                 onChanged: (value) {
                   ref.read(memberSearchQueryProvider.notifier).state = value;
+                  // A new search invalidates whatever page we were on.
+                  ref.read(memberPageProvider.notifier).state = 0;
                 },
                 decoration: const InputDecoration(
                   hintText: 'Search by name or ID...',
@@ -120,9 +122,13 @@ class AdminMembersScreen extends ConsumerWidget {
           childAspectRatio: 2.5,
           children: [
             _buildStatBox('Total Members', stats.totalMembers.toString(), Colors.white, AppColors.tertiary),
-            _buildStatBox('Active Now', stats.activeNow.toString(), AppColors.secondary, null),
+            // Labels now match what these fields actually source (active
+            // profile count / open moderation reports) — they were
+            // previously named "Active Now" and "Pending Sync", which
+            // implied live presence and a data-sync queue that don't exist.
+            _buildStatBox('Active Members', stats.activeNow.toString(), AppColors.secondary, null),
             _buildStatBox('Executives', stats.executives.toString(), AppColors.primaryContainer, AppColors.primaryContainer),
-            _buildStatBox('Pending Sync', stats.pendingSync.toString(), AppColors.tertiary.withValues(alpha: 0.6), null),
+            _buildStatBox('Pending Reports', stats.pendingSync.toString(), AppColors.tertiary.withValues(alpha: 0.6), null),
           ],
         );
       },
@@ -161,6 +167,13 @@ class AdminMembersScreen extends ConsumerWidget {
   Widget _buildMembersTable(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(paginatedUsersProvider);
     final isActionLoading = ref.watch(adminActionProvider).isLoading;
+    final totalCountAsync = ref.watch(memberTotalCountProvider);
+    final currentPage = ref.watch(memberPageProvider);
+    final totalCount = totalCountAsync.valueOrNull ?? 0;
+    final totalPages = totalCount == 0 ? 1 : (totalCount / memberPageSize).ceil();
+    final rowsOnPage = usersAsync.valueOrNull?.length ?? 0;
+    final rangeStart = totalCount == 0 ? 0 : currentPage * memberPageSize + 1;
+    final rangeEnd = currentPage * memberPageSize + rowsOnPage;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -229,14 +242,22 @@ class AdminMembersScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Showing top results', style: TextStyle(color: AppColors.textSecondaryDark, fontSize: 12)),
+                        Text(
+                          totalCount == 0 ? 'No results' : 'Showing $rangeStart–$rangeEnd of $totalCount',
+                          style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12),
+                        ),
                         Row(
                           children: [
-                            IconButton(icon: const Icon(Icons.chevron_left, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
-                            _buildPageButton('1', true),
-                            _buildPageButton('2', false),
-                            _buildPageButton('3', false),
-                            IconButton(icon: const Icon(Icons.chevron_right, color: AppColors.textSecondaryDark, size: 20), onPressed: () {}),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left, color: AppColors.textSecondaryDark, size: 20),
+                              onPressed: currentPage > 0 ? () => ref.read(memberPageProvider.notifier).state = currentPage - 1 : null,
+                            ),
+                            for (final p in _pageWindow(currentPage, totalPages))
+                              _buildPageButton('${p + 1}', p == currentPage, () => ref.read(memberPageProvider.notifier).state = p),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right, color: AppColors.textSecondaryDark, size: 20),
+                              onPressed: currentPage < totalPages - 1 ? () => ref.read(memberPageProvider.notifier).state = currentPage + 1 : null,
+                            ),
                           ],
                         ),
                       ],
@@ -251,16 +272,37 @@ class AdminMembersScreen extends ConsumerWidget {
     ).wrapWithBlur(20, 24);
   }
 
-  Widget _buildPageButton(String text, bool isSelected) {
-    return Container(
-      width: 32, height: 32,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.tertiary : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(text, style: TextStyle(color: isSelected ? const Color(0xFF412D00) : AppColors.textSecondaryDark, fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+  /// Up to 3 page indices (0-indexed) centered on the current page, clamped
+  /// to the valid [0, totalPages) range, for the page-number button row.
+  List<int> _pageWindow(int currentPage, int totalPages) {
+    if (totalPages <= 1) return [0];
+    var start = currentPage - 1;
+    var end = currentPage + 1;
+    if (start < 0) {
+      end -= start;
+      start = 0;
+    }
+    if (end > totalPages - 1) {
+      start -= (end - (totalPages - 1));
+      end = totalPages - 1;
+    }
+    start = start.clamp(0, totalPages - 1);
+    return [for (var p = start; p <= end; p++) p];
+  }
+
+  Widget _buildPageButton(String text, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32, height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.tertiary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(text, style: TextStyle(color: isSelected ? const Color(0xFF412D00) : AppColors.textSecondaryDark, fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        ),
       ),
     );
   }
@@ -273,7 +315,10 @@ class AdminMembersScreen extends ConsumerWidget {
     bool showBorder = true,
   }) {
     final isExecutive = user.isExecutive || user.isAdmin || user.isSuperAdmin;
-    final avatarUrl = user.avatarUrl ?? 'https://ui-avatars.com/api/?name=${Uri.encodeComponent(user.fullName)}&background=1d100a&color=e9c176';
+    final hasAvatar = user.avatarUrl != null && user.avatarUrl!.isNotEmpty;
+    final initials = user.fullName.trim().isEmpty
+        ? '?'
+        : user.fullName.trim().split(RegExp(r'\s+')).take(2).map((s) => s[0].toUpperCase()).join();
 
     return InkWell(
       onTap: () => MemberDetailModal.show(context, user),
@@ -294,9 +339,18 @@ class AdminMembersScreen extends ConsumerWidget {
                     width: 48, height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      image: DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover),
+                      color: AppColors.surfaceContainerDark,
+                      image: hasAvatar ? DecorationImage(image: NetworkImage(user.avatarUrl!), fit: BoxFit.cover) : null,
                       border: isExecutive ? Border.all(color: AppColors.primaryContainer, width: 2) : null,
                     ),
+                    child: hasAvatar
+                        ? null
+                        : Center(
+                            child: Text(
+                              initials,
+                              style: const TextStyle(color: AppColors.tertiary, fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 16),

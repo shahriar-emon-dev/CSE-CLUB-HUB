@@ -124,9 +124,9 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
 // Member Management Stats Data Class
 class MemberStats {
   final int totalMembers;
-  final int activeNow; // Mocked or calculated differently in future
+  final int activeNow; // Active-status profile count (labeled "Active Members" in the UI)
   final int executives;
-  final int pendingSync; // Mocked
+  final int pendingSync; // Open content_reports count (labeled "Pending Reports" in the UI)
   final int recentGrowth;
 
   MemberStats({
@@ -182,16 +182,33 @@ final systemActivityStreamProvider = StreamProvider<List<SystemActivity>>((ref) 
 // Search Query Provider for Member Management
 final memberSearchQueryProvider = StateProvider<String>((ref) => '');
 
-// Paginated User Profiles Provider
+// Current page (0-indexed) for the member management table.
+final memberPageProvider = StateProvider<int>((ref) => 0);
+
+const memberPageSize = 20;
+
+// Paginated User Profiles Provider — actually paginated: watches the current
+// page and re-fetches that page's offset, instead of always returning the
+// first 20 rows regardless of which page the UI claims to be on.
 final paginatedUsersProvider = FutureProvider<List<UserProfile>>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
   if (session == null) return [];
 
   final repo = ref.watch(adminRepositoryProvider);
   final searchQuery = ref.watch(memberSearchQueryProvider);
-  
-  // Just fetching first 20 for simplicity in this implementation
-  return await repo.getUsers(searchQuery: searchQuery, limit: 20, offset: 0);
+  final page = ref.watch(memberPageProvider);
+
+  return await repo.getUsers(searchQuery: searchQuery, limit: memberPageSize, offset: page * memberPageSize);
+});
+
+// Total profiles matching the current search, for page-count/boundary math.
+final memberTotalCountProvider = FutureProvider<int>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return 0;
+
+  final repo = ref.watch(adminRepositoryProvider);
+  final searchQuery = ref.watch(memberSearchQueryProvider);
+  return await repo.getUsersCount(searchQuery: searchQuery);
 });
 
 // StateNotifier for Admin Actions (Promote/Revoke) to handle loading states
@@ -471,7 +488,7 @@ final adminExecutivesListProvider = StreamProvider<List<ClubExecutive>>((ref) {
   if (session == null) return Stream.value([]);
 
   final channel = SupabaseConfig.client
-      .channel('public:rt_admin_executives_${DateTime.now().millisecondsSinceEpoch}')
+      .channel('public:rt_admin_executives')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',

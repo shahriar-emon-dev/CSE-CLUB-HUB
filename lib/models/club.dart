@@ -12,7 +12,8 @@ class Club {
   final String? location;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+  final String status;
+
   // From club_list_view
   final int memberCount;
 
@@ -30,6 +31,7 @@ class Club {
     this.location,
     required this.createdAt,
     required this.updatedAt,
+    this.status = 'active',
     this.memberCount = 0,
   });
 
@@ -52,6 +54,7 @@ class Club {
       location: json['location'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : DateTime.now(),
+      status: json['status'] as String? ?? 'active',
       memberCount: json['member_count'] as int? ?? 0,
     );
   }

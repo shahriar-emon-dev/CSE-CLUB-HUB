@@ -197,8 +197,16 @@ class _AdminClubsScreenState extends ConsumerState<AdminClubsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Status: Active',
-                style: const TextStyle(color: AppColors.tertiary, fontSize: 12, fontWeight: FontWeight.bold),
+                'Status: ${club.status[0].toUpperCase()}${club.status.substring(1)}',
+                style: TextStyle(
+                  color: switch (club.status) {
+                    'active' => AppColors.tertiary,
+                    'archived' => AppColors.textTertiaryDark,
+                    _ => AppColors.warning,
+                  },
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Row(
                 children: [

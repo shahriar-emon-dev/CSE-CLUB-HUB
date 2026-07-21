@@ -18,6 +18,33 @@ class AdminRepository {
     }
   }
 
+  /// Average minutes between a content_report's creation and its resolution,
+  /// computed from real resolved reports (status='resolved', resolved_at
+  /// set). Returns 0 only when there is genuinely no resolved-report history
+  /// yet, not as a placeholder.
+  Future<int> _computeAvgResponseMinutes() async {
+    final data = await _supabase
+        .from('content_reports')
+        .select('created_at, resolved_at')
+        .eq('status', 'resolved')
+        .not('resolved_at', 'is', null);
+
+    final rows = data as List;
+    if (rows.isEmpty) return 0;
+
+    var totalMinutes = 0;
+    var counted = 0;
+    for (final row in rows) {
+      final created = DateTime.tryParse(row['created_at']?.toString() ?? '');
+      final resolved = DateTime.tryParse(row['resolved_at']?.toString() ?? '');
+      if (created == null || resolved == null) continue;
+      totalMinutes += resolved.difference(created).inMinutes;
+      counted++;
+    }
+    if (counted == 0) return 0;
+    return (totalMinutes / counted).round();
+  }
+
   /// Fetches platform statistics dynamically using the single-pass database RPC
   /// (`get_admin_dashboard_metrics`). Falls back safely if the RPC is unavailable during migration.
   Future<Map<String, dynamic>> getPlatformStatistics() async {
@@ -28,7 +55,7 @@ class AdminRepository {
           final map = Map<String, dynamic>.from(rpcResult);
           map['recent_registrations'] = map['recent_registrations'] ?? 0;
           map['recent_avatars'] = <String>[];
-          map['avg_response_minutes'] = map['avg_response_minutes'] ?? 0;
+          map['avg_response_minutes'] = await _computeAvgResponseMinutes();
           map['club_member_counts'] = <String, int>{};
           return map;
         }
@@ -41,7 +68,7 @@ class AdminRepository {
         _supabase.from('profiles').select('id, role, status, avatar_url, created_at'),
         _supabase.from('clubs').select('id, status'),
         _supabase.from('events').select('id, is_cancelled'),
-        _supabase.from('content_reports').select('id, status, severity, resolved_at'),
+        _supabase.from('content_reports').select('id, status, severity, created_at, resolved_at'),
         _supabase.from('club_posts').select('id'),
         _supabase.from('comments').select('id'),
         _supabase.from('club_post_reactions').select('reaction_type'),
@@ -93,6 +120,8 @@ class AdminRepository {
       int pendingReports = 0;
       int highRiskReports = 0;
       int resolvedToday = 0;
+      int totalResponseMinutes = 0;
+      int resolvedWithTimestamps = 0;
 
       for (final r in reports) {
         final st = (r['status'] ?? '').toString().toLowerCase();
@@ -109,8 +138,16 @@ class AdminRepository {
           if (dt != null && dt.year == now.year && dt.month == now.month && dt.day == now.day) {
             resolvedToday++;
           }
+          final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+          final resolvedAt = DateTime.tryParse(resAtStr);
+          if (createdAt != null && resolvedAt != null) {
+            totalResponseMinutes += resolvedAt.difference(createdAt).inMinutes;
+            resolvedWithTimestamps++;
+          }
         }
       }
+
+      final avgResponseMinutes = resolvedWithTimestamps > 0 ? (totalResponseMinutes / resolvedWithTimestamps).round() : 0;
 
       return {
         'total_students': totalStudents,
@@ -127,7 +164,7 @@ class AdminRepository {
         'pending_reports': pendingReports,
         'high_risk_reports': highRiskReports,
         'resolved_today_reports': resolvedToday,
-        'avg_response_minutes': 0,
+        'avg_response_minutes': avgResponseMinutes,
         'club_member_counts': <String, int>{},
       };
     }, fallback: {
@@ -181,6 +218,20 @@ class AdminRepository {
     }, fallback: <UserProfile>[]);
   }
 
+  /// Total count of profiles matching the same filter [getUsers] uses, for
+  /// real pagination (page count, disabling next at the boundary) instead of
+  /// a decorative page-number row.
+  Future<int> getUsersCount({String? searchQuery}) async {
+    return SupabaseQueryHelper.runQuery('getUsersCount', () async {
+      var query = _supabase.from('profiles').select('id');
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        query = query.or('full_name.ilike.%$searchQuery%,student_id.ilike.%$searchQuery%,email.ilike.%$searchQuery%');
+      }
+      final response = await query.count(CountOption.exact);
+      return response.count;
+    }, fallback: 0);
+  }
+
   /// Role Management
   Future<void> promoteToExecutive(String userId, String clubId, String roleTitle) async {
     _checkSuperAdmin();
@@ -211,7 +262,7 @@ class AdminRepository {
     return SupabaseQueryHelper.runQuery('revokeExecutive', () async {
       await _supabase.rpc('revoke_executive_role', params: {
         'p_user_id': userId,
-        if (clubId != null) 'p_club_id': clubId,
+        'p_club_id': ?clubId,
       });
       AppLogger.info('Revoked executive status for user $userId (club: $clubId)');
     });
