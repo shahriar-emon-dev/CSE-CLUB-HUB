@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../models/event.dart';
 import '../../events/screens/create_event_screen.dart';
 import '../providers/admin_providers.dart';
+import 'event_participants_screen.dart';
 
 class AdminEventsScreen extends ConsumerStatefulWidget {
   const AdminEventsScreen({super.key});
@@ -188,6 +189,13 @@ class _AdminEventsScreenState extends ConsumerState<AdminEventsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => EventParticipantsScreen(eventId: event.id, eventTitle: event.title)),
+                ),
+                icon: const Icon(Icons.groups_outlined, color: AppColors.tertiary, size: 18),
+                label: const Text('Participants', style: TextStyle(color: AppColors.tertiary)),
+              ),
               if (!event.isCancelled)
                 TextButton.icon(
                   onPressed: () => _cancelOrDelete(event, isDelete: false),
