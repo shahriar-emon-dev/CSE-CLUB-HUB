@@ -22,6 +22,7 @@ class UnifiedPostDetailScreen extends ConsumerStatefulWidget {
 
 class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScreen> {
   final _commentController = TextEditingController();
+  bool _isSubmittingComment = false;
 
   @override
   void dispose() {
@@ -30,9 +31,11 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
   }
 
   void _submitComment(UnifiedFeedItemType type) async {
+    if (_isSubmittingComment) return;
     final content = _commentController.text.trim();
     if (content.isEmpty) return;
 
+    setState(() => _isSubmittingComment = true);
     try {
       final userId = SupabaseConfig.currentUserId;
       if (userId == null) return;
@@ -48,7 +51,10 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
       FocusScope.of(context).unfocus();
       ref.invalidate(postCommentsProvider(widget.postId));
       ref.invalidate(unifiedFeedItemProvider(widget.postId));
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isSubmittingComment = false);
+    }
   }
 
   void _toggleReaction(String type) {
@@ -401,7 +407,7 @@ class _UnifiedPostDetailScreenState extends ConsumerState<UnifiedPostDetailScree
   }
 
   Widget _buildStickyCommentInput(UnifiedFeedItemType type) {
-    final isLoading = false; // No longer uses shared notifier
+    final isLoading = _isSubmittingComment;
 
     return Container(
       decoration: BoxDecoration(

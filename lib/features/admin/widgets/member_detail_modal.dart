@@ -551,7 +551,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
-                        value: selectedClubId,
+                        initialValue: selectedClubId,
                         dropdownColor: const Color(0xFF1E1E2C),
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
@@ -628,7 +628,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
-                        value: selectedClubId,
+                        initialValue: selectedClubId,
                         dropdownColor: const Color(0xFF1E1E2C),
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
@@ -701,7 +701,7 @@ class _MemberDetailModalState extends ConsumerState<MemberDetailModal> with Sing
               data: (clubs) {
                 return SingleChildScrollView(
                   child: DropdownButtonFormField<String>(
-                    value: selectedClubId,
+                    initialValue: selectedClubId,
                     dropdownColor: const Color(0xFF1E1E2C),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

@@ -92,14 +92,9 @@ class PinnedPostCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(notice.body, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 16, height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [],
-                  ),
-                  const Icon(Icons.share, color: AppColors.textSecondaryDark, size: 20),
-                ],
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Icon(Icons.share, color: AppColors.textSecondaryDark, size: 20),
               ),
             ],
           ),

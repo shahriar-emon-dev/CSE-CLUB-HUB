@@ -26,7 +26,7 @@ final currentProfileProvider = FutureProvider<UserProfile?>((ref) async {
   if (user == null) return null;
 
   final channel = SupabaseConfig.client
-      .channel('public:rt_current_profile_${user.id}_${DateTime.now().millisecondsSinceEpoch}')
+      .channel('public:rt_current_profile_${user.id}')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',

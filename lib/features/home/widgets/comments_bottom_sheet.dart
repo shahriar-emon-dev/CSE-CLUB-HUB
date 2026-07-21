@@ -7,7 +7,6 @@ import '../../../core/constants/supabase_config.dart';
 import '../../../models/club_post.dart';
 import '../../../models/unified_feed_item.dart';
 import '../providers/post_interaction_provider.dart';
-import '../repositories/posts_repository.dart';
 import '../providers/home_feed_provider.dart';
 
 /// Shows the comments bottom sheet over the feed.
@@ -81,9 +80,10 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
       _controller.clear();
       _cancelReply();
 
-      // Invalidate to refresh comments and update post cards live
+      // Invalidate only the affected item's own providers — no need to
+      // refetch the entire feed for a single comment.
       ref.invalidate(postCommentsProvider(widget.entityId));
-      ref.invalidate(homeFeedProvider);
+      ref.invalidate(postCommentCountProvider(widget.entityId));
       ref.invalidate(unifiedFeedItemProvider(widget.entityId));
 
       // Scroll to bottom after a short delay
@@ -133,7 +133,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
           .eq('id', commentId)
           .eq('author_id', SupabaseConfig.currentUserId ?? '');
       ref.invalidate(postCommentsProvider(widget.entityId));
-      ref.invalidate(homeFeedProvider);
+      ref.invalidate(postCommentCountProvider(widget.entityId));
       ref.invalidate(unifiedFeedItemProvider(widget.entityId));
     } catch (e) {
       if (mounted) {
@@ -193,7 +193,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
                         'Comments',
                         style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      error: (_, __) => const Text(
+                      error: (_, _) => const Text(
                         'Comments',
                         style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
@@ -400,7 +400,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
                 ? CachedNetworkImage(
                     imageUrl: comment.authorAvatarUrl!,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
+                    errorWidget: (_, _, _) =>
                         const Icon(Icons.person, color: AppColors.primary, size: 20),
                   )
                 : const Icon(Icons.person, color: AppColors.primary, size: 20),

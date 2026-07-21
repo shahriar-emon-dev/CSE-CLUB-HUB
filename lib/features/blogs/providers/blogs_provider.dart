@@ -59,9 +59,20 @@ final blogDetailProvider = FutureProvider.family<Blog?, String>((ref, blogId) as
       .eq('id', blogId)
       .maybeSingle();
   if (data == null) return null;
-  // Increment view count
-  await SupabaseConfig.client.rpc('increment_blog_views', params: {'blog_id': blogId});
   return Blog.fromJson(data);
+});
+
+/// Increments the blog's view count exactly once per screen visit.
+///
+/// Deliberately kept separate from [blogDetailProvider]: that provider
+/// watches [authSessionProvider] and rebuilds on every JWT refresh, which
+/// was re-triggering the view-count RPC on every token refresh while the
+/// detail screen stayed open, wildly inflating counts. This provider has no
+/// reactive dependencies, so it runs its Future exactly once while a screen
+/// keeps it watched, and `.autoDispose` re-arms it on the next visit.
+final blogViewIncrementProvider = FutureProvider.autoDispose.family<void, String>((ref, blogId) async {
+  if (SupabaseConfig.currentUserId == null) return;
+  await SupabaseConfig.client.rpc('increment_blog_views', params: {'blog_id': blogId});
 });
 
 // My blogs (author's own)

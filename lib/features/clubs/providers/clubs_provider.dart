@@ -31,7 +31,7 @@ final clubExecutivesProvider = StreamProvider.family<List<ClubExecutive>, String
   if (session == null) return Stream.value([]);
 
   final channel = SupabaseConfig.client
-      .channel('public:rt_club_execs_${clubId}_${DateTime.now().millisecondsSinceEpoch}')
+      .channel('public:rt_club_execs_$clubId')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',

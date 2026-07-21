@@ -11,6 +11,7 @@ class BlogDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final blogAsync = ref.watch(blogDetailProvider(blogId));
     final likedAsync = ref.watch(blogLikeProvider(blogId));
+    ref.watch(blogViewIncrementProvider(blogId));
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,

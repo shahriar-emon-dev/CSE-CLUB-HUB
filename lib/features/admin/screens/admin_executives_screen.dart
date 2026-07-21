@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/supabase_config.dart';
 import '../../../models/club_executive.dart';
 import '../../clubs/providers/clubs_provider.dart';
 import '../providers/admin_providers.dart';
@@ -210,7 +209,7 @@ class _AdminExecutivesScreenState extends ConsumerState<AdminExecutivesScreen> {
                   error: (err, _) => Text('Error loading clubs: $err', style: const TextStyle(color: AppColors.error)),
                   data: (clubs) {
                     return DropdownButtonFormField<String>(
-                      value: selectedClubId,
+                      initialValue: selectedClubId,
                       dropdownColor: const Color(0xFF2A170F),
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
@@ -257,12 +256,14 @@ class _AdminExecutivesScreenState extends ConsumerState<AdminExecutivesScreen> {
                 }
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
+                }
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Executive details updated!'), backgroundColor: AppColors.primary),
                   );
                 }
               } catch (e) {
-                if (ctx.mounted) {
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error updating details: $e'), backgroundColor: AppColors.error));
                 }
               }
@@ -290,6 +291,8 @@ class _AdminExecutivesScreenState extends ConsumerState<AdminExecutivesScreen> {
                 await ref.read(adminActionProvider.notifier).revokeExecutive(exec.userId, exec.clubId);
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
+                }
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Executive role revoked successfully.'), backgroundColor: AppColors.primary),
                   );

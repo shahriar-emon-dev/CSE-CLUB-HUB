@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/supabase_config.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../clubs/providers/clubs_provider.dart';
 import '../providers/events_provider.dart';
@@ -63,13 +64,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
       final extension = _selectedImage!.name.split('.').last;
       final filePath = '$eventId/cover_${DateTime.now().millisecondsSinceEpoch}.$extension';
       
-      await Supabase.instance.client.storage.from('posts').uploadBinary(
+      await Supabase.instance.client.storage.from(SupabaseConfig.eventCoversBucket).uploadBinary(
         filePath,
         _imageBytes!,
         fileOptions: FileOptions(contentType: 'image/$extension', upsert: true),
       );
-      
-      return Supabase.instance.client.storage.from('posts').getPublicUrl(filePath);
+
+      return Supabase.instance.client.storage.from(SupabaseConfig.eventCoversBucket).getPublicUrl(filePath);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));

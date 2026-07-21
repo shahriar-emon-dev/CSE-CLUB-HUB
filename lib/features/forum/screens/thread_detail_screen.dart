@@ -16,11 +16,19 @@ final threadDetailProvider = FutureProvider.family<ForumThread?, String>((ref, t
       .eq('id', threadId)
       .maybeSingle();
   if (data == null) return null;
-  // Increment view count
-  await SupabaseConfig.client.rpc('increment_thread_views', params: {'thread_id': threadId});
   final json = Map<String, dynamic>.from(data);
   if (json['profiles'] != null) { json['author_name'] = json['profiles']['full_name']; json['author_avatar'] = json['profiles']['avatar_url']; }
   return ForumThread.fromJson(json);
+});
+
+/// Increments the thread's view count exactly once per screen visit.
+/// Kept separate from [threadDetailProvider] for the same reason as
+/// `blogViewIncrementProvider`: that provider watches [authSessionProvider]
+/// and rebuilds on every JWT refresh, which was re-firing the RPC call on
+/// every token refresh instead of once per visit.
+final threadViewIncrementProvider = FutureProvider.autoDispose.family<void, String>((ref, threadId) async {
+  if (SupabaseConfig.currentUserId == null) return;
+  await SupabaseConfig.client.rpc('increment_thread_views', params: {'thread_id': threadId});
 });
 
 final threadPostsProvider = FutureProvider.family<List<ForumPost>, String>((ref, threadId) async {
@@ -75,6 +83,7 @@ class _ThreadDetailScreenState extends ConsumerState<ThreadDetailScreen> {
   Widget build(BuildContext context) {
     final threadAsync = ref.watch(threadDetailProvider(widget.threadId));
     final postsAsync = ref.watch(threadPostsProvider(widget.threadId));
+    ref.watch(threadViewIncrementProvider(widget.threadId));
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,

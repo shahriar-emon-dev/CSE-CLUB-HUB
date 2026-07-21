@@ -1,18 +1,14 @@
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../models/event.dart';
 import '../providers/clubs_provider.dart';
 import '../providers/club_posts_provider.dart';
 import '../../events/providers/events_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../../core/router/app_router.dart';
-import '../../home/widgets/post_actions_bottom_sheet.dart';
 import '../../../models/unified_feed_item.dart';
 import '../../home/widgets/post_card.dart';
 import '../../home/widgets/event_card.dart';
@@ -807,7 +803,7 @@ class _ClubProfileScreenState extends ConsumerState<ClubProfileScreen> {
                   description: event.description,
                   isPinned: false,
                   createdAt: event.createdAt,
-                  updatedAt: event.updatedAt ?? event.createdAt,
+                  updatedAt: event.updatedAt,
                   eventDate: event.eventDate,
                   venue: event.venue,
                   capacity: event.capacity,

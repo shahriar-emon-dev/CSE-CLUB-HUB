@@ -221,20 +221,9 @@ class EventsListScreen extends ConsumerStatefulWidget {
 }
 
 class _EventsListScreenState extends ConsumerState<EventsListScreen> {
-  final ScrollController _dateStripController = ScrollController();
   EventFilterTab _selectedTab = EventFilterTab.all;
   bool _sortNewestFirst = true;
   DateTime? _filterByDate;
-
-  @override
-  void dispose() {
-    _dateStripController.dispose();
-    super.dispose();
-  }
-
-  List<DateTime> _getRollingWeek(DateTime anchor) {
-    return List.generate(7, (index) => anchor.subtract(const Duration(days: 3)).add(Duration(days: index)));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -469,80 +458,6 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDateStrip() {
-    final selectedDate = ref.watch(selectedDateProvider);
-    final weekDates = _getRollingWeek(DateTime.now());
-    final monthYearFormatter = DateFormat('MMMM yyyy');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            const Text('Scheduled Events', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
-            Text(monthYearFormatter.format(selectedDate), style: const TextStyle(color: AppColors.primary, fontSize: 14, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          controller: _dateStripController,
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: Row(
-            children: weekDates.map((date) => _buildDateItem(date, selectedDate)).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateItem(DateTime date, DateTime selectedDate) {
-    final isSelected = date.year == selectedDate.year && date.month == selectedDate.month && date.day == selectedDate.day;
-    final dayName = DateFormat('E').format(date);
-    final dayNum = DateFormat('d').format(date);
-
-    return GestureDetector(
-      onTap: () {
-        ref.read(selectedDateProvider.notifier).state = date;
-        setState(() => _filterByDate = date);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        width: 56,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6A00) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFFF6A00).withValues(alpha: 0.15), blurRadius: 20)] : null,
-        ),
-        child: Column(
-          children: [
-            Text(
-              dayName.toUpperCase(),
-              style: TextStyle(
-                color: isSelected ? const Color(0xFF571F00) : AppColors.textSecondaryDark,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              dayNum,
-              style: TextStyle(
-                color: isSelected ? const Color(0xFF571F00) : Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -160,9 +160,9 @@ void showReactionPicker(
             child: Container(color: Colors.transparent),
           ),
         ),
-        // Picker positioned above the anchor
+        // Picker positioned above the anchor, centered on the anchor's midpoint
         Positioned(
-          left: position.dx - 40,
+          left: position.dx + (size.width / 2) - 40,
           top: position.dy - 90,
           child: ReactionPicker(
             currentReaction: currentReaction,
