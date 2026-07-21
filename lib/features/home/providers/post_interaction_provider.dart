@@ -8,61 +8,17 @@ import '../repositories/posts_repository.dart';
 import 'home_feed_provider.dart';
 
 // ---------------------------------------------------------------------------
-// 1. Per-post reaction counts (realtime)
+// Per-post reaction counts and the current user's reaction are both served
+// live by [postReactionNotifierProvider] below (it fetches both on init and
+// keeps them fresh via a realtime subscription), so there is exactly one
+// source of truth per post instead of a second, independently-fetched copy.
 // ---------------------------------------------------------------------------
-final postReactionCountsProvider =
-    StreamProvider.family<Map<String, int>, String>((ref, postId) async* {
-  final session = ref.watch(authSessionProvider).valueOrNull;
-  if (session == null) {
-    yield {'favorite': 0, 'fire': 0, 'pan_tool': 0};
-    return;
-  }
-
-  // Fetch initial counts
-  yield await _fetchReactionCounts(postId);
-
-  // Then listen for changes via realtime
-  final channel = SupabaseConfig.client.channel('reactions:$postId')
-      .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'club_post_reactions',
-          filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'post_id',
-              value: postId),
-          callback: (_) {})
-      .subscribe();
-
-  // Use a stream controller to push updates
-  await for (final _ in Stream.periodic(const Duration(milliseconds: 500))) {
-    // This is triggered by realtime - re-fetch counts
-    break;
-  }
-
-  ref.onDispose(() {
-    SupabaseConfig.client.removeChannel(channel);
-  });
-});
-
 Future<Map<String, int>> _fetchReactionCounts(String postId) async {
   return PostsRepository().getReactionCounts(postId);
 }
 
 // ---------------------------------------------------------------------------
-// 2. Current user's reaction for a post
-// ---------------------------------------------------------------------------
-final userReactionProvider =
-    FutureProvider.family<String?, String>((ref, postId) async {
-  final session = ref.watch(authSessionProvider).valueOrNull;
-  if (session == null) return null;
-
-  final repo = ref.watch(postsRepositoryProvider);
-  return repo.getUserReaction(postId);
-});
-
-// ---------------------------------------------------------------------------
-// 3. Per-post optimistic reaction state
+// 1. Per-post optimistic reaction state
 //    This overrides the server state with local optimistic updates.
 // ---------------------------------------------------------------------------
 class PostReactionState {
@@ -95,6 +51,8 @@ class PostReactionNotifier extends StateNotifier<PostReactionState> {
 
   PostReactionNotifier(this.postId, this._repository)
       : super(const PostReactionState());
+
+  bool get isLoading => state.isLoading;
 
   /// Initialize from server data
   void initialize(String? userReaction, Map<String, int> counts) {
@@ -186,7 +144,7 @@ final postReactionNotifierProvider = StateNotifierProvider.family<
               try {
                 final userReaction = await repo.getUserReaction(postId);
                 final counts = await _fetchReactionCounts(postId);
-                if (notifier.mounted && !notifier.state.isLoading) {
+                if (notifier.mounted && !notifier.isLoading) {
                   notifier.initialize(userReaction, counts);
                 }
               } catch (_) {}
@@ -202,7 +160,7 @@ final postReactionNotifierProvider = StateNotifierProvider.family<
 });
 
 // ---------------------------------------------------------------------------
-// 4. Per-post comment count (for display on post card)
+// 2. Per-post comment count (for display on post card)
 // ---------------------------------------------------------------------------
 final postCommentCountProvider =
     FutureProvider.family<int, String>((ref, postId) async {
@@ -222,7 +180,7 @@ final postCommentCountProvider =
 });
 
 // ---------------------------------------------------------------------------
-// 5. Comments list with realtime for bottom sheet
+// 3. Comments list with realtime for bottom sheet
 // ---------------------------------------------------------------------------
 final postCommentsProvider =
     FutureProvider.family<List<ClubPostComment>, String>((ref, entityId) async {
@@ -251,4 +209,53 @@ final postCommentsProvider =
 
   final repository = ref.read(postsRepositoryProvider);
   return repository.getComments(entityId);
+});
+
+// ---------------------------------------------------------------------------
+// 4. Bookmarks (club posts only — saved_posts.post_id references
+//    club_posts, there is no equivalent table for events).
+// ---------------------------------------------------------------------------
+final postBookmarkProvider = FutureProvider.family<bool, String>((ref, postId) async {
+  final userId = SupabaseConfig.currentUserId;
+  if (userId == null) return false;
+
+  final data = await SupabaseConfig.client
+      .from('saved_posts')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+  return data != null;
+});
+
+class BookmarkNotifier extends StateNotifier<AsyncValue<void>> {
+  final Ref _ref;
+  BookmarkNotifier(this._ref) : super(const AsyncValue.data(null));
+
+  Future<void> toggle(String postId, bool isBookmarked) async {
+    final userId = SupabaseConfig.currentUserId;
+    if (userId == null) return;
+
+    try {
+      if (isBookmarked) {
+        await SupabaseConfig.client
+            .from('saved_posts')
+            .delete()
+            .eq('post_id', postId)
+            .eq('user_id', userId);
+      } else {
+        await SupabaseConfig.client.from('saved_posts').upsert({
+          'post_id': postId,
+          'user_id': userId,
+        }, onConflict: 'user_id, post_id');
+      }
+      _ref.invalidate(postBookmarkProvider(postId));
+    } catch (e) {
+      AppLogger.warning('Failed to toggle bookmark for $postId: $e');
+    }
+  }
+}
+
+final bookmarkNotifierProvider = StateNotifierProvider<BookmarkNotifier, AsyncValue<void>>((ref) {
+  return BookmarkNotifier(ref);
 });
