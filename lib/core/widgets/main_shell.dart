@@ -7,7 +7,8 @@ import '../widgets/role_based_drawer.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;
-  const MainShell({super.key, required this.child});
+  final String location;
+  const MainShell({super.key, required this.child, required this.location});
 
   @override
   ConsumerState<MainShell> createState() => _MainShellState();
@@ -15,7 +16,6 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _currentIndex = 0;
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Feed', route: AppRoutes.home),
@@ -24,12 +24,23 @@ class _MainShellState extends ConsumerState<MainShell> {
   ];
 
   void _onTap(int index) {
-    setState(() => _currentIndex = index);
     context.go(_navItems[index].route);
+  }
+
+  /// Derives the selected tab from the current GoRouter location instead of
+  /// tracking separate widget state, so deep links, the drawer, and back
+  /// navigation all keep the bottom bar in sync with the actual route.
+  int _indexForLocation(String location) {
+    for (var i = _navItems.length - 1; i >= 0; i--) {
+      if (location.startsWith(_navItems[i].route)) return i;
+    }
+    return -1;
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = _indexForLocation(widget.location);
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: const RoleBasedDrawer(),
@@ -50,7 +61,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               children: [
                 ...List.generate(_navItems.length, (index) {
                   final item = _navItems[index];
-                  final isSelected = _currentIndex == index;
+                  final isSelected = currentIndex == index;
                   return _NavButton(
                     item: item,
                     isSelected: isSelected,

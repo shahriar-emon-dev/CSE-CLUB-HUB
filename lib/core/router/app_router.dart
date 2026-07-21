@@ -6,7 +6,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/email_verification_screen.dart';
-import '../../features/auth/screens/onboarding_screen.dart';
+import '../../features/auth/screens/splash_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/unified_post_detail_screen.dart';
 import '../../features/home/screens/create_post_screen.dart';
@@ -38,6 +38,8 @@ import '../../features/admin/screens/admin_executives_screen.dart';
 import '../../features/admin/screens/admin_events_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/search/screens/search_screen.dart';
+import '../../features/profile/screens/profile_setup_screen.dart';
+import '../../features/clubs/screens/club_post_detail_screen.dart';
 import '../widgets/main_shell.dart';
 import '../widgets/permission_denied_screen.dart';
 
@@ -49,10 +51,12 @@ class AppRoutes {
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String emailVerification = '/verify-email';
+  static const String profileSetup = '/profile-setup';
 
   static const String home = '/home';
   static const String clubs = '/clubs';
   static const String clubDetail = '/clubs/:id';
+  static const String clubPostDetail = '/clubs/:clubId/posts/:postId';
   static const String createPost = '/post/create';
   static const String postDetail = '/post/:id';
   static const String events = '/events';
@@ -88,25 +92,48 @@ class AppRoutes {
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Bridges Riverpod auth/profile state changes into GoRouter's
+/// [Listenable]-based refresh mechanism. This lets `redirect` re-evaluate
+/// on auth/profile changes WITHOUT the [GoRouter] instance itself being
+/// recreated, which would otherwise wipe the navigation stack.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(Ref ref) {
+    ref.listen(authStateProvider, (_, _) => notifyListeners());
+    ref.listen(currentProfileProvider, (_, _) => notifyListeners());
+  }
+}
+
+/// Router is built exactly once for the lifetime of the app. It does not
+/// `ref.watch` any reactive provider directly (that would recreate the
+/// GoRouter, and with it the whole navigation stack, on every emission).
+/// Auth/profile changes instead flow through [_RouterRefreshNotifier] via
+/// `refreshListenable`, and `redirect` reads live state with `ref.read`.
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final profileAsync = ref.watch(currentProfileProvider);
-  final profile = profileAsync.valueOrNull;
+  final refreshNotifier = _RouterRefreshNotifier(ref);
+  ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: AppRoutes.onboarding,
+    initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final isLoggedIn = authState.valueOrNull != null;
+      // The splash screen is a neutral zone: it always renders for its full
+      // fixed duration regardless of auth state, then navigates itself to
+      // login — where the existing rules below take over unchanged.
+      if (state.fullPath == AppRoutes.splash) {
+        return null;
+      }
+
+      final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
+      final profile = ref.read(currentProfileProvider).valueOrNull;
       final isAuthRoute = state.fullPath == AppRoutes.login ||
           state.fullPath == AppRoutes.register ||
           state.fullPath == AppRoutes.forgotPassword ||
-          state.fullPath == AppRoutes.emailVerification ||
-          state.fullPath == AppRoutes.onboarding;
+          state.fullPath == AppRoutes.emailVerification;
 
       if (!isLoggedIn && !isAuthRoute) {
-        return AppRoutes.onboarding;
+        return AppRoutes.login;
       }
       if (isLoggedIn && isAuthRoute) {
         return AppRoutes.home;
@@ -136,16 +163,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // Auth routes (no shell)
-      GoRoute(path: AppRoutes.onboarding, builder: (_, _) => const OnboardingScreen()),
+      GoRoute(path: AppRoutes.splash, builder: (_, _) => const SplashScreen()),
       GoRoute(path: AppRoutes.login, builder: (_, _) => const LoginScreen()),
       GoRoute(path: AppRoutes.register, builder: (_, _) => const RegisterScreen()),
       GoRoute(path: AppRoutes.forgotPassword, builder: (_, _) => const ForgotPasswordScreen()),
       GoRoute(path: AppRoutes.emailVerification, builder: (_, _) => const EmailVerificationScreen()),
+      GoRoute(path: AppRoutes.profileSetup, builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: AppRoutes.permissionDenied, builder: (_, _) => const PermissionDeniedScreen()),
 
       // Main shell with bottom nav
       ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
+        builder: (context, state, child) => MainShell(location: state.uri.toString(), child: child),
         routes: [
           GoRoute(path: AppRoutes.home, builder: (_, _) => const HomeScreen()),
           GoRoute(
@@ -155,6 +183,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ':id',
                 builder: (_, state) => ClubProfileScreen(clubId: state.pathParameters['id']!),
+                routes: [
+                  GoRoute(
+                    path: 'posts/:postId',
+                    builder: (_, state) => ClubPostDetailScreen(postId: state.pathParameters['postId']!),
+                  ),
+                ],
               ),
             ],
           ),
